@@ -8,8 +8,36 @@ datasource db {
 }
 
 model User {
+  id            Int            @id @default(autoincrement())
+  email         String         @unique
+  password      String
+  createdAt     DateTime       @default(now())
+  studySessions StudySession[]
+  moodLogs      MoodLog[]
+}
+
+model StudySession {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  date          DateTime  @default(now())
+  durationMins  Int
+  mode          String
+  moodBefore    Int?
+  energyBefore  Int?
+  focusQuality  Int?
+  dominantState String?
+  createdAt     DateTime  @default(now())
+}
+
+model MoodLog {
   id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @default(now())
+  mood      Int
+  energy    Int
+  stress    Int
+  note      String?
   createdAt DateTime @default(now())
 }
