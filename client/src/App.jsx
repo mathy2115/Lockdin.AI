@@ -12,6 +12,7 @@ import Wellness from './pages/Wellness';
 import Onboarding from './pages/Onboarding';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import Landing from './pages/Landing';
 
 function App() {
   // Simple check for token - in a real app, you'd use a proper AuthContext
@@ -27,7 +28,7 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             
             {/* Protected Routes */}
-            <Route path="/" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
+            <Route path="/" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Landing />} />
             <Route path="/dashboard" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
             <Route path="/planner" element={isAuthenticated ? <Layout><AcademicPlanner /></Layout> : <Navigate to="/login" />} />
             <Route path="/focus" element={isAuthenticated ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
