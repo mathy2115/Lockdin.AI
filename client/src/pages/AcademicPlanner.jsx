@@ -37,7 +37,7 @@ const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 const TaskCard = ({ task, index, onDelete }) => {
   return (
-    <Draggable draggableId={task.id} index={index}>
+    <Draggable draggableId={String(task.id)} index={index}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
@@ -92,7 +92,8 @@ const TaskCard = ({ task, index, onDelete }) => {
 
 const Column = ({ id, title, tasks, onDeleteTask }) => {
   return (
-    <div className="flex flex-col h-full bg-[#0d1117] rounded-xl border border-white/5 overflow-hidden min-h-[500px]">
+    // FIX: removed overflow-hidden — it was clipping DnD hit detection
+    <div className="flex flex-col h-full bg-[#0d1117] rounded-xl border border-white/5 min-h-[500px]">
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${id === 'todo' ? 'bg-amber-400' : id === 'inprogress' ? 'bg-blue-400' : 'bg-green-400'
@@ -141,15 +142,14 @@ const AcademicPlanner = () => {
   const [extractedText, setExtractedText] = useState('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [activeView, setActiveView] = useState('kanban'); // 'kanban' or 'calendar'
+  const [activeView, setActiveView] = useState('kanban');
 
-  // Planner State
   const [plannerOnboarding, setPlannerOnboarding] = useState(false);
   const [plannerConfig, setPlannerConfig] = useState(() => {
     const saved = localStorage.getItem('planner_config');
     return saved ? JSON.parse(saved) : {
       studyHours: 4,
-      examDates: [], // { subject: '', date: '' }
+      examDates: [],
       marks: ''
     };
   });
@@ -159,7 +159,6 @@ const AcademicPlanner = () => {
   const fileInputRef = useRef(null);
   const [manualForm, setManualForm] = useState({ subject: '', topic: '', subTopic: '', date: '' });
 
-  // Persistence
   useEffect(() => {
     localStorage.setItem('academicTasks', JSON.stringify(tasks));
   }, [tasks]);
@@ -183,7 +182,6 @@ const AcademicPlanner = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // --- PDF Extraction (Frontend only) ---
   const loadPdfJs = () => {
     return new Promise((resolve, reject) => {
       if (window.pdfjsLib) return resolve(window.pdfjsLib);
@@ -241,7 +239,6 @@ const AcademicPlanner = () => {
     }
   };
 
-    // --- Groq API Call for Study Plan ---
   const handleGenerateStudyPlan = async () => {
     if (!extractedText.trim()) return;
 
@@ -290,7 +287,7 @@ const AcademicPlanner = () => {
 
       newTasks = newTasks.map(t => ({
         ...t,
-        id: t.id || crypto.randomUUID(),
+        id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 5)}`,
         status: t.column || 'todo',
         source: 'ai'
       }));
@@ -302,7 +299,7 @@ const AcademicPlanner = () => {
       });
       setPlannerOnboarding(false);
       setExtractedText('');
-      setActiveView('kanban'); // Switch to kanban view
+      setActiveView('kanban');
       showToast(`📅 Study plan generated with ${newTasks.length} tasks!`);
     } catch (err) {
       console.error(err);
@@ -316,28 +313,29 @@ const AcademicPlanner = () => {
     }
   };
 
-  // --- DND Handlers ---
+  // FIX: handleDragEnd logic as requested
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
-
     if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const updatedTasks = Array.from(tasks);
-    const taskIndex = updatedTasks.findIndex(t => t.id === draggableId);
-    const [movedTask] = updatedTasks.splice(taskIndex, 1);
+    const sourceCol = source.droppableId;
+    const destCol = destination.droppableId;
 
-    // Update status based on destination column
-    movedTask.status = destination.droppableId;
-
-    // Re-insert at the correct position (or just push if you don't care about order within column)
-    // Actually, to keep order within column, we need to handle indexes carefully
-    // For simplicity, we'll just update the status and the overall list
     setTasks(prev => {
-      const newList = prev.filter(t => t.id !== draggableId);
-      // We could insert at a specific index if we tracked column-specific order, 
-      // but status-based filtering is easier for now.
-      return [...newList, movedTask];
+      // Find the task in the full array by ID
+      const taskIndex = prev.findIndex(t => String(t.id) === String(draggableId));
+      if (taskIndex === -1) return prev;
+
+      const updatedTasks = [...prev];
+      // Update only the column (status)
+      updatedTasks[taskIndex] = {
+        ...updatedTasks[taskIndex],
+        status: destCol
+      };
+
+      // Save to localStorage
+      localStorage.setItem('academicTasks', JSON.stringify(updatedTasks));
+      return updatedTasks;
     });
   };
 
@@ -349,12 +347,16 @@ const AcademicPlanner = () => {
     e.preventDefault();
     const newTask = {
       ...manualForm,
-      id: crypto.randomUUID(),
+      id: `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       status: 'todo',
       source: 'manual',
       type: 'study'
     };
-    setTasks(prev => [...prev, newTask]);
+    setTasks(prev => {
+      const updated = [...prev, newTask];
+      localStorage.setItem('academicTasks', JSON.stringify(updated));
+      return updated;
+    });
     setIsManualModalOpen(false);
     setManualForm({ subject: '', topic: '', subTopic: '', date: '' });
     showToast("Task added successfully!");
@@ -418,8 +420,8 @@ const AcademicPlanner = () => {
         />
       </header>
 
-      {/* MAIN VIEW */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* MAIN VIEW — FIX: removed overflow-hidden so DnD drag layer isn't clipped */}
+      <div className="flex-1 min-h-0">
         {activeView === 'kanban' ? (
           <DragDropContext onDragEnd={onDragEnd}>
             <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6 pb-6">
@@ -459,8 +461,8 @@ const AcademicPlanner = () => {
               </div>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="flex-1 grid grid-cols-7 border-b border-white/5 h-12 bg-white/[0.01]">
+            {/* Calendar Day Headers */}
+            <div className="grid grid-cols-7 border-b border-white/5 h-12 bg-white/[0.01]">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                 <div key={day} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-fa-text-muted">
                   {day}
@@ -494,14 +496,12 @@ const AcademicPlanner = () => {
                       </div>
 
                       <div className="space-y-1 overflow-hidden">
-                        {/* Exams First */}
                         {userExams.map((exam, i) => (
                           <div key={i} className="bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded truncate flex items-center gap-1 shadow-sm">
                             <Target size={10} /> {exam.subject}
                           </div>
                         ))}
 
-                        {/* Tasks */}
                         {dayTasks.slice(0, 3).map((task) => (
                           <div
                             key={task.id}
@@ -551,7 +551,6 @@ const AcademicPlanner = () => {
             </div>
 
             <div className="space-y-6">
-              {/* Extracted Text Review */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <label className="block text-sm font-bold text-white mb-3">
                   Review Syllabus Content
@@ -563,7 +562,6 @@ const AcademicPlanner = () => {
                 />
               </div>
 
-              {/* Daily Hours */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
                   <Clock size={16} className="text-fa-brand" />
@@ -581,7 +579,6 @@ const AcademicPlanner = () => {
                 <p className="text-[10px] text-fa-text-muted mt-2 uppercase tracking-wider font-bold">Recommended: 4–6 hours for deep focus</p>
               </div>
 
-              {/* Exam Dates */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <div className="flex justify-between items-center mb-4">
                   <label className="block text-sm font-bold text-white flex items-center gap-2">
@@ -641,7 +638,6 @@ const AcademicPlanner = () => {
                 </div>
               </div>
 
-              {/* Previous Marks */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
                   <History size={16} className="text-amber-400" />
@@ -694,7 +690,6 @@ const AcademicPlanner = () => {
             </div>
 
             <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-180px)] pr-4 custom-scrollbar">
-              {/* Exams Section */}
               {selectedDayTasks.exams.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
@@ -714,7 +709,6 @@ const AcademicPlanner = () => {
                 </div>
               )}
 
-              {/* Tasks Section */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-fa-brand uppercase tracking-widest flex items-center gap-2">
                   <CheckCircle2 size={14} /> Scheduled Tasks
@@ -745,7 +739,7 @@ const AcademicPlanner = () => {
                               }`}>
                               {task.status || 'todo'}
                             </span>
-                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-white/5 text-fa-text-muted border border-white/5`}>
+                            <span className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-white/5 text-fa-text-muted border border-white/5">
                               {task.source === 'ai' ? 'AI-Generated' : 'Manual'}
                             </span>
                           </div>
@@ -839,7 +833,7 @@ const AcademicPlanner = () => {
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
+      {/* TOAST */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-fa-brand border border-white/20 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
           <CheckCircle2 size={18} />

@@ -1,65 +1,82 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Timer, Flame, CheckSquare, HeartPulse } from 'lucide-react';
+import { LogOut, Timer, Flame, CheckSquare, HeartPulse, ChevronRight } from 'lucide-react';
+import { format, isToday, parseISO, differenceInDays } from 'date-fns';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    focusTime: '0h',
+    streak: '0 Days',
+    tasksCompleted: 0,
+    burnoutRisk: 'Low',
+    upNext: []
+  });
+
+  useEffect(() => {
+    // 1. Focus Time & Streak
+    const sessions = JSON.parse(localStorage.getItem('focusSessions') || '[]');
+    const todaySessions = sessions.filter(s => isToday(parseISO(s.date)));
+    const totalTodaySeconds = todaySessions.reduce((acc, s) => acc + (s.duration || 0), 0);
+    const hours = (totalTodaySeconds / 3600).toFixed(1);
+
+    // Calculate Streak
+    let streak = 0;
+    if (sessions.length > 0) {
+      const sortedDates = [...new Set(sessions.map(s => s.date.split('T')[0]))].sort().reverse();
+      let current = new Date();
+      current.setHours(0,0,0,0);
+      
+      for (let dateStr of sortedDates) {
+        const d = new Date(dateStr);
+        d.setHours(0,0,0,0);
+        const diff = differenceInDays(current, d);
+        if (diff === 0 || diff === 1) {
+          streak++;
+          current = d;
+        } else {
+          break;
+        }
+      }
+    }
+
+    // 2. Tasks Completed
+    const tasks = JSON.parse(localStorage.getItem('academicTasks') || '[]');
+    const completedCount = tasks.filter(t => t.status === 'done').length;
+
+    // 3. Burnout Risk (from latest mood)
+    const moodLogs = JSON.parse(localStorage.getItem('moodLogs') || '[]');
+    let risk = 'Low';
+    if (moodLogs.length > 0) {
+      const latest = moodLogs[moodLogs.length - 1];
+      const avg = (latest.mood + latest.energy + (6 - latest.stress)) / 3; // Stress is inverted in risk
+      if (avg < 2) risk = 'High';
+      else if (avg < 3.5) risk = 'Medium';
+    }
+
+    // 4. Up Next (2 upcoming tasks)
+    const upcoming = tasks
+      .filter(t => t.status !== 'done')
+      .sort((a, b) => {
+        if (!a.date) return 1;
+        if (!b.date) return -1;
+        return new Date(a.date) - new Date(b.date);
+      })
+      .slice(0, 2);
+
+    setStats({
+      focusTime: hours + 'h',
+      streak: streak + ' Days',
+      tasksCompleted: completedCount,
+      burnoutRisk: risk,
+      upNext: upcoming
+    });
+  }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
   };
-
-  // --- LOCALSTORAGE CALCULATIONS ---
-  const focusSessions = JSON.parse(localStorage.getItem('focusSessions') || '[]');
-  const academicTasks = JSON.parse(localStorage.getItem('academicTasks') || '[]');
-  const moodLogs = JSON.parse(localStorage.getItem('moodLogs') || '[]');
-
-  // 1. Today's Focus
-  const today = new Date().toISOString().split('T')[0];
-  const todaySeconds = focusSessions
-    .filter(s => s.date === today)
-    .reduce((acc, s) => acc + (s.duration || 0), 0);
-  const todayHours = (todaySeconds / 3600).toFixed(1);
-
-  // 2. Current Streak
-  const calculateStreak = () => {
-    if (focusSessions.length === 0) return 0;
-    const sortedDates = [...new Set(focusSessions.map(s => s.date))].sort().reverse();
-    let streak = 0;
-    let curr = new Date();
-    
-    for (let date of sortedDates) {
-      const d = new Date(date);
-      const diff = Math.floor((curr - d) / (1000 * 60 * 60 * 24));
-      if (diff <= 1) {
-        streak++;
-        curr = d;
-      } else {
-        break;
-      }
-    }
-    return streak;
-  };
-  const streak = calculateStreak();
-
-  // 3. Tasks Completed
-  const completedTasksCount = academicTasks.filter(t => t.status === 'done').length;
-
-  // 4. Burnout Risk
-  const getBurnoutRisk = () => {
-    if (moodLogs.length === 0) return 'No data';
-    const latestMood = moodLogs[moodLogs.length - 1].mood; // Assuming 1-10 scale
-    if (latestMood <= 3) return 'High';
-    if (latestMood <= 6) return 'Medium';
-    return 'Low';
-  };
-  const burnoutRisk = getBurnoutRisk();
-
-  // 5. Up Next (2 upcoming tasks)
-  const upNext = academicTasks
-    .filter(t => t.status !== 'done' && t.date)
-    .sort((a, b) => new Date(a.date) - new Date(b.date))
-    .slice(0, 2);
 
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
@@ -85,7 +102,7 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Today's Focus</span>
               <Timer size={18} className="text-fa-brand" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">{todayHours}h</div>
+            <div className="text-3xl font-bold text-white mb-1">{stats.focusTime}</div>
             <div className="text-xs text-fa-text-muted font-medium">Recorded today</div>
           </div>
 
@@ -94,8 +111,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Current Streak</span>
               <Flame size={18} className="text-orange-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">{streak} {streak === 1 ? 'Day' : 'Days'}</div>
-            <div className="text-xs text-fa-text-muted font-medium">{streak > 0 ? 'Keep it up!' : 'Start a session!'}</div>
+            <div className="text-3xl font-bold text-white mb-1">{stats.streak}</div>
+            <div className="text-xs text-fa-text-muted font-medium">Daily commitment</div>
           </div>
 
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-5 shadow-sm">
@@ -103,8 +120,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Tasks Completed</span>
               <CheckSquare size={18} className="text-green-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">{completedTasksCount}</div>
-            <div className="text-xs text-fa-text-muted font-medium">All time</div>
+            <div className="text-3xl font-bold text-white mb-1">{stats.tasksCompleted}</div>
+            <div className="text-xs text-fa-text-muted font-medium">From Academic Hub</div>
           </div>
 
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-5 shadow-sm cursor-pointer hover:border-fa-brand/50 transition-colors" onClick={() => navigate('/wellness')}>
@@ -112,8 +129,11 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Burnout Risk</span>
               <HeartPulse size={18} className="text-blue-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">{burnoutRisk}</div>
-            <div className="text-xs text-fa-text-muted font-medium">Based on latest check-in</div>
+            <div className={`text-3xl font-bold mb-1 ${
+              stats.burnoutRisk === 'High' ? 'text-red-400' : 
+              stats.burnoutRisk === 'Medium' ? 'text-amber-400' : 'text-white'
+            }`}>{stats.burnoutRisk}</div>
+            <div className="text-xs text-fa-text-muted font-medium">Based on recent mood</div>
           </div>
         </div>
 
@@ -131,24 +151,25 @@ const Dashboard = () => {
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-8 shadow-sm">
             <h3 className="text-lg font-bold text-white mb-4">Up Next</h3>
             <div className="space-y-3">
-              {upNext.length === 0 ? (
-                <p className="text-sm text-fa-text-muted italic">No upcoming tasks scheduled.</p>
+              {stats.upNext.length === 0 ? (
+                <div className="text-sm text-fa-text-muted italic py-4">No tasks yet. Add tasks in Academic Hub.</div>
               ) : (
-                upNext.map(task => (
+                stats.upNext.map((task, idx) => (
                   <div key={task.id} className="flex items-center justify-between bg-fa-bg-page p-3 rounded-xl border border-fa-border/50">
                     <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${task.priority === 'High' ? 'bg-red-400' : 'bg-blue-400'}`}></div>
-                      <span className="text-sm font-medium text-fa-text-primary">{task.topic || task.title}</span>
+                      <div className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-red-400' : 'bg-blue-400'}`}></div>
+                      <div className="flex flex-col">
+                        <span className="text-xs font-bold text-fa-brand uppercase tracking-wider">{task.subject}</span>
+                        <span className="text-sm font-medium text-fa-text-primary">{task.topic || task.title}</span>
+                      </div>
                     </div>
-                    <span className="text-xs font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">
-                      {new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                    </span>
+                    {task.date && <span className="text-[10px] font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">{format(parseISO(task.date), 'MMM d')}</span>}
                   </div>
                 ))
               )}
             </div>
-            <button className="text-sm text-fa-brand font-medium mt-5 hover:underline" onClick={() => navigate('/planner')}>
-              View academic hub →
+            <button className="text-sm text-fa-brand font-medium mt-5 flex items-center gap-1 hover:underline" onClick={() => navigate('/planner')}>
+              View academic hub <ChevronRight size={14} />
             </button>
           </div>
         </div>

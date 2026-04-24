@@ -79,6 +79,11 @@ const MoodCheckIn = ({ type, onSubmit, onSkip }) => {
       console.error('Mood log failed:', err);
     }
 
+    // Save to localStorage for Dashboard
+    const logs = JSON.parse(localStorage.getItem('moodLogs') || '[]');
+    logs.push({ ...moodData, date: new Date().toISOString() });
+    localStorage.setItem('moodLogs', JSON.stringify(logs));
+
     onSubmit(moodData);
   };
 

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Check, Circle, Focus, Layout } from 'lucide-react';
+import { Check, Circle, Focus, Layout, ChevronRight, CheckCircle2 } from 'lucide-react';
 
 const TaskManager = ({ onFocusTask }) => {
   const [tasks, setTasks] = useState(() => {
     const saved = localStorage.getItem('academicTasks');
     return saved ? JSON.parse(saved) : [];
   });
+
+  // Keep track of tasks being completed to show animation before removal
+  const [completingIds, setCompletingIds] = useState(new Set());
 
   useEffect(() => {
     const handleStorageChange = (e) => {
@@ -18,86 +21,117 @@ const TaskManager = ({ onFocusTask }) => {
   }, []);
 
   const toggleComplete = (id) => {
-    const updatedTasks = tasks.map(t => {
-      if (t.id === id) {
-        return { ...t, status: t.status === 'done' ? 'todo' : 'done' };
-      }
-      return t;
-    });
-    setTasks(updatedTasks);
-    localStorage.setItem('academicTasks', JSON.stringify(updatedTasks));
+    // Add to completing set for animation
+    setCompletingIds(prev => new Set(prev).add(id));
+
+    // Wait 1 second before actually updating state and localStorage
+    setTimeout(() => {
+      const updatedTasks = tasks.map(t => {
+        if (t.id === id) {
+          return { ...t, status: 'done' };
+        }
+        return t;
+      });
+      
+      setTasks(updatedTasks);
+      localStorage.setItem('academicTasks', JSON.stringify(updatedTasks));
+      setCompletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, 1000);
   };
 
-  const filteredTasks = tasks.filter(t => t.status !== 'done');
+  // Filter only todo or inprogress tasks
+  // We include tasks in the "completing" state so they stay visible during the 1s delay
+  const activeTasks = tasks.filter(t => t.status === 'todo' || t.status === 'inprogress');
 
   return (
-    <div className="flex flex-col h-full bg-[#1A2236] border border-[rgba(255,255,255,0.07)] rounded-[16px] p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col bg-[#1A2236] border border-white/5 rounded-2xl p-6 shadow-xl w-full">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="font-bold text-lg text-white flex items-center gap-2">
           <Layout size={20} className="text-fa-brand" />
           Your Tasks
         </h3>
         <span className="text-[10px] font-black bg-fa-brand/10 text-fa-brand px-2.5 py-1 rounded-full uppercase tracking-widest">
-          {filteredTasks.length} Active
+          {activeTasks.length} Active
         </span>
       </div>
       
-      <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar">
-        {filteredTasks.length === 0 ? (
-          <div className="text-center py-16 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl text-fa-text-muted">
-            <div className="p-4 bg-white/5 rounded-full mb-4">
-              <Check size={32} />
+      <div className="h-[250px] overflow-y-auto space-y-3 pr-2 scrollbar-thin scrollbar-thumb-fa-brand scrollbar-track-fa-bg">
+        <style dangerouslySetInnerHTML={{ __html: `
+          .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+          .scrollbar-thin::-webkit-scrollbar-track { background: #0d1117; border-radius: 10px; }
+          .scrollbar-thin::-webkit-scrollbar-thumb { background: #6366f1; border-radius: 10px; }
+        `}} />
+        
+        {activeTasks.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl text-fa-text-muted">
+            <div className="p-3 bg-white/5 rounded-full mb-3">
+              <Check size={24} />
             </div>
-            <p className="font-bold text-sm">All caught up!</p>
-            <p className="text-xs mt-1">Add tasks in the Academic Hub.</p>
+            <p className="font-bold text-sm">No tasks yet.</p>
+            <p className="text-xs mt-1 text-center">Add tasks in Academic Hub.</p>
           </div>
         ) : (
-          filteredTasks.map(task => (
-            <div 
-              key={task.id} 
-              className="group relative bg-[#0A0E1A] border border-white/5 rounded-2xl p-5 transition-all hover:border-fa-brand/50 hover:bg-fa-brand/[0.02] flex gap-4"
-            >
-              <button 
-                onClick={() => toggleComplete(task.id)}
-                className="mt-1 text-fa-text-muted hover:text-emerald-500 flex-shrink-0 transition-colors"
+          activeTasks.map(task => {
+            const isCompleting = completingIds.has(task.id);
+            
+            return (
+              <div 
+                key={task.id} 
+                className={`group relative bg-[#0A0E1A] border border-white/5 rounded-xl p-4 transition-all flex items-center gap-4 ${
+                  isCompleting ? 'opacity-50 border-emerald-500/30 bg-emerald-500/5' : 'hover:border-fa-brand/50 hover:bg-fa-brand/[0.02]'
+                }`}
               >
-                <Circle size={20} />
-              </button>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[9px] font-black bg-fa-brand text-white px-2 py-0.5 rounded-full uppercase tracking-widest">
-                    {task.subject || 'Study'}
-                  </span>
-                  {task.status === 'inprogress' && (
-                    <span className="text-[9px] font-black bg-blue-500 text-white px-2 py-0.5 rounded-full uppercase tracking-widest animate-pulse">
-                      In Progress
+                <button 
+                  onClick={() => !isCompleting && toggleComplete(task.id)}
+                  className={`flex-shrink-0 transition-colors ${
+                    isCompleting ? 'text-emerald-500' : 'text-fa-text-muted hover:text-emerald-500'
+                  }`}
+                >
+                  {isCompleting ? <CheckCircle2 size={18} fill="currentColor" className="text-emerald-500" /> : <Circle size={18} />}
+                </button>
+                
+                <div className="flex-1 min-w-0">
+                  <div className={`flex items-center gap-1.5 flex-wrap transition-all ${isCompleting ? 'line-through decoration-emerald-500/50' : ''}`}>
+                    <span className="text-[10px] font-bold text-fa-brand uppercase tracking-wider">
+                      {task.subject || 'General'}
                     </span>
-                  )}
+                    <ChevronRight size={10} className="text-fa-text-muted" />
+                    <span className={`text-[10px] font-bold text-white uppercase tracking-wider ${isCompleting ? 'text-gray-500' : ''}`}>
+                      {task.topic || task.title}
+                    </span>
+                    {task.subTopic && (
+                      <>
+                        <ChevronRight size={10} className="text-fa-text-muted" />
+                        <span className={`text-[10px] font-medium text-fa-text-secondary truncate max-w-[150px] ${isCompleting ? 'text-gray-600' : ''}`}>
+                          {task.subTopic}
+                        </span>
+                      </>
+                    )}
+                    {task.status === 'inprogress' && !isCompleting && (
+                      <span className="ml-2 text-[8px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
+                        In Progress
+                      </span>
+                    )}
+                  </div>
                 </div>
-                
-                <h4 className="text-sm font-bold text-white mb-1 truncate leading-tight">
-                  {task.topic || task.title}
-                </h4>
-                
-                {(task.subTopic || task.description) && (
-                  <p className="text-xs text-fa-text-secondary line-clamp-2 leading-relaxed italic">
-                    {task.subTopic || task.description}
-                  </p>
-                )}
-              </div>
 
-              <div className="flex flex-col items-end justify-center">
                 <button 
                   onClick={() => onFocusTask(task.topic || task.title)}
-                  className="bg-fa-brand/10 hover:bg-fa-brand text-fa-brand hover:text-white p-2.5 rounded-xl transition-all shadow-lg hover:shadow-fa-brand/20 group/focus"
+                  disabled={isCompleting}
+                  className={`bg-fa-brand/10 hover:bg-fa-brand text-fa-brand hover:text-white p-2 rounded-lg transition-all shadow-lg hover:shadow-fa-brand/20 group/focus ${
+                    isCompleting ? 'opacity-20 pointer-events-none' : ''
+                  }`}
                   title="Focus on this task"
                 >
-                  <Focus size={18} className="group-hover/focus:scale-110 transition-transform" />
+                  <Focus size={16} className="group-hover/focus:scale-110 transition-transform" />
                 </button>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
