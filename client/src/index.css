@@ -1,7 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-<<<<<<< HEAD
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --fa-bg-page: #0A0E1A;
@@ -12,7 +15,7 @@
   --fa-text-primary: #F0F4FF;
   --fa-text-secondary: #8892AA;
   --fa-text-muted: #4A5568;
-  --fa-border: rgba(255,255,255,0.07);
+  --fa-border: rgba(255, 255, 255, 0.07);
   --fa-state-focused: #4FC3F7;
   --fa-state-distracted: #FFB347;
   --fa-state-stressed: #FF8FAB;
@@ -25,5 +28,3 @@ body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--fa-text-primary);
 }
-=======
->>>>>>> f466af9549ed768fb52a1c6457b740719ef396b5
