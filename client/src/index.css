@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+<<<<<<< HEAD
 
 :root {
   --fa-bg-page: #0A0E1A;
@@ -24,3 +25,5 @@ body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--fa-text-primary);
 }
+=======
+>>>>>>> f466af9549ed768fb52a1c6457b740719ef396b5
