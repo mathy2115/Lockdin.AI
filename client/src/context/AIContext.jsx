@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useRef } from 'react';
+import { createContext, useContext, useState, useRef } from 'react';
 
 const AIContext = createContext();
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAI = () => useContext(AIContext);
 
 export const AIProvider = ({ children }) => {

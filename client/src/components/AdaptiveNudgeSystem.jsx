@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const DEFAULT_SETTINGS = {
   frequency: 'Medium', // Low (10m), Medium (5m), High (2m)
@@ -17,7 +17,17 @@ const FREQUENCY_MAP = {
 };
 
 export default function AdaptiveNudgeSystem({ currentState = 'focused', currentTask = 'Work' }) {
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('nudgeSettings');
+    if (saved) {
+      try {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      } catch {
+        return DEFAULT_SETTINGS;
+      }
+    }
+    return DEFAULT_SETTINGS;
+  });
   const [showSettings, setShowSettings] = useState(false);
   const [encouragementMessage, setEncouragementMessage] = useState('');
   const [showHydration, setShowHydration] = useState(false);
@@ -26,7 +36,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
   // Refs for tracking
   const audioCtxRef = useRef(null);
   const oscillatorRef = useRef(null);
-  const focusStartTimeRef = useRef(Date.now());
+  const focusStartTimeRef = useRef(null);
   const intervalRef = useRef(null);
   // Debounced state to prevent flicker on away detection
   const [stableState, setStableState] = useState(currentState);
@@ -41,22 +51,10 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
     } else {
       // Any non-away state clears the timer and updates immediately
       clearTimeout(awayTimerRef.current);
-      setStableState(currentState);
+      setTimeout(() => setStableState(currentState), 0);
     }
     return () => clearTimeout(awayTimerRef.current);
   }, [currentState]);
-
-  // Load settings on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('nudgeSettings');
-    if (saved) {
-      try {
-        setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(saved) });
-      } catch (e) {
-        console.error('Failed to parse nudge settings', e);
-      }
-    }
-  }, []);
 
   // Save settings when they change
   const updateSettings = (newSettings) => {
@@ -118,7 +116,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
         const { osc, gainNode } = oscillatorRef.current;
         gainNode.gain.linearRampToValueAtTime(0, audioCtxRef.current.currentTime + 0.5);
         osc.stop(audioCtxRef.current.currentTime + 0.5);
-      } catch (e) {
+      } catch {
         // Ignore errors if already stopped
       }
       oscillatorRef.current = null;
@@ -139,7 +137,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
     if (!settings.encouragement) return;
     try {
       // Mocking the API response since it might not exist yet
-      setEncouragementMessage(`You've got this! Keep tackling ${task}.`);
+      setTimeout(() => setEncouragementMessage(`You've got this! Keep tackling ${task}.`), 0);
 
       const response = await fetch('/api/nudge/encourage', {
         method: 'POST',
@@ -158,7 +156,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
   // State Effect
   useEffect(() => {
     // Reset state flags
-    setIsDismissed(false);
+    setTimeout(() => setIsDismissed(false), 0);
     stopTone();
     window.speechSynthesis?.cancel();
 
@@ -177,7 +175,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
     if (currentState === 'stressed') {
       if (settings.breathing) {
         playTone(432, 'sine'); // Calming soft pulse
-        fetchEncouragement(currentTask);
+        setTimeout(() => fetchEncouragement(currentTask), 0);
         speakNudge("Let's take a deep breath. Inhale for 4 seconds, hold for 7, exhale for 8.");
       }
     }
@@ -312,17 +310,6 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
           <span>💧</span>
           <span className="text-sm font-medium">You've been focused for 90 mins — water break?</span>
           <button onClick={() => setShowHydration(false)} className="ml-4 text-xs bg-blue-500/20 hover:bg-blue-500/40 px-3 py-1 rounded transition-colors">Dismiss</button>
-        </div>
-      )}
-
-      {/* Focused State */}
-      {currentState === 'focused' && (
-        <div className="fixed top-4 right-4 z-40 bg-fa-state-focused/10 border border-fa-state-focused/30 text-fa-state-focused px-3 py-1.5 rounded-full text-xs font-semibold shadow-[0_0_15px_rgba(34,197,94,0.15)] flex items-center gap-2 animate-fade-in transition-all duration-500">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-fa-state-focused opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-fa-state-focused"></span>
-          </span>
-          Deep Focus 🎯
         </div>
       )}
 

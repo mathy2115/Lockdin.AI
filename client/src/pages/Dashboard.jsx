@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Timer, Flame, CheckSquare, HeartPulse } from 'lucide-react';
 
@@ -71,7 +70,7 @@ const Dashboard = () => {
           <div className="bg-gradient-to-br from-[#1A1E2E] to-[#2D243F] rounded-2xl p-8 border border-fa-brand/20 shadow-lg relative overflow-hidden group cursor-pointer" onClick={() => navigate('/focus')}>
             <div className="absolute top-0 right-0 w-32 h-32 bg-fa-brand/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
             <h3 className="text-xl font-bold text-white mb-2 relative z-10">Start a Focus Session</h3>
-            <p className="text-sm text-fa-text-secondary mb-6 relative z-10 max-w-[80%]">Enter manual mode to track your tasks and stay accountable.</p>
+            <p className="text-sm text-fa-text-secondary mb-6 relative z-10 max-w-[80%]">Use AI camera mode to track your focus and stay accountable.</p>
             <button className="bg-fa-brand hover:bg-fa-brand/90 text-white font-semibold py-2.5 px-6 rounded-xl transition-colors relative z-10">
               Launch Timer
             </button>
@@ -95,8 +94,8 @@ const Dashboard = () => {
                 <span className="text-xs font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">Tomorrow</span>
               </div>
             </div>
-            <button className="text-sm text-fa-brand font-medium mt-5 hover:underline" onClick={() => navigate('/tasks')}>
-              View all tasks →
+            <button className="text-sm text-fa-brand font-medium mt-5 hover:underline" onClick={() => navigate('/planner')}>
+              View academic hub →
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
 
 const MOOD_OPTIONS = [
@@ -18,11 +18,11 @@ const ENERGY_OPTIONS = [
 ];
 
 const STRESS_OPTIONS = [
-  { emoji: '😌', label: 'None', value: 1 },
-  { emoji: '🙂', label: 'Low', value: 2 },
+  { emoji: '😰', label: 'Overwhelmed', value: 1 },
+  { emoji: '😟', label: 'High', value: 2 },
   { emoji: '😐', label: 'Okay', value: 3 },
-  { emoji: '😟', label: 'High', value: 4 },
-  { emoji: '😰', label: 'Overwhelmed', value: 5 },
+  { emoji: '🙂', label: 'Low', value: 4 },
+  { emoji: '😌', label: 'None', value: 5 },
 ];
 
 const EmojiSelector = ({ options, selected, onSelect }) => (
@@ -45,7 +45,7 @@ const EmojiSelector = ({ options, selected, onSelect }) => (
   </div>
 );
 
-const MoodCheckIn = ({ type, onSubmit, onSkip, selectedMode }) => {
+const MoodCheckIn = ({ type, onSubmit, onSkip }) => {
   const [mood, setMood] = useState(null);
   const [energy, setEnergy] = useState(null);
   const [stress, setStress] = useState(null);
@@ -58,15 +58,12 @@ const MoodCheckIn = ({ type, onSubmit, onSkip, selectedMode }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      type === 'before' &&
-      selectedMode === 'Deep Work' &&
-      mood <= 2 &&
-      energy <= 2 &&
-      !showWarning
-    ) {
-      setShowWarning(true);
-      return;
+    if (type === 'before' && !showWarning) {
+      const totalScore = (mood || 0) + (energy || 0) + (stress || 0);
+      if (totalScore <= 7) {
+        setShowWarning(true);
+        return;
+      }
     }
 
     const token = localStorage.getItem('token');
@@ -97,24 +94,21 @@ const MoodCheckIn = ({ type, onSubmit, onSkip, selectedMode }) => {
           <div className="flex flex-col items-center text-center gap-4">
             <span className="text-5xl">😔</span>
             <h2 className="text-xl font-bold text-white font-['Sora']">
-              You're feeling drained
+              You seem drained
             </h2>
-            <p className="text-sm text-fa-text-secondary">
-              Deep Work needs 50 minutes of sustained focus. Starting when tired can make it harder to build a good habit.
+            <p className="text-sm text-fa-text-secondary leading-relaxed">
+              Based on your mood, energy and stress levels, a long focus session might do more harm than good. We recommend starting with a Classic 25-min session instead.
             </p>
-            <p className="text-sm text-[#6C8EFF]">
-              We'd suggest Classic mode (25 min) instead.
-            </p>
-            <div className="flex flex-col w-full gap-3 mt-2">
+            <div className="flex flex-col w-full gap-3 mt-4">
               <button
-                onClick={() => { setShowWarning(false); onSkip(); }}
-                className="w-full py-3 bg-[#6C8EFF] text-white rounded-xl font-semibold"
+                onClick={() => { setShowWarning(false); onSubmit({ mood, energy, stress, note, recommendation: 'Classic' }); }}
+                className="w-full py-4 bg-fa-brand text-white rounded-xl font-bold shadow-lg shadow-fa-brand/20"
               >
-                Switch to Classic
+                Start Classic Session
               </button>
               <button
                 onClick={() => { setShowWarning(false); onSubmit({ mood, energy, stress, note }); }}
-                className="w-full py-3 border border-fa-border text-fa-text-secondary rounded-xl text-sm hover:text-white transition-colors"
+                className="w-full py-3 text-fa-text-secondary rounded-xl text-sm font-semibold hover:text-white transition-colors"
               >
                 I'll push through anyway
               </button>

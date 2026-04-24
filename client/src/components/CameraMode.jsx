@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Camera, CameraOff, Loader2 } from 'lucide-react';
 
 const TM_MODEL_URL = 'https://teachablemachine.withgoogle.com/models/aptIgRtjs/';
 const FACE_API_WEIGHTS = '/weights'
 
-const CameraMode = ({ onStateChange, onToggle }) => {
+const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
   const [hasConsent, setHasConsent] = useState(() => localStorage.getItem('camConsentGiven') === 'true');
   const [isActive, setIsActive] = useState(false);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -69,6 +69,7 @@ const CameraMode = ({ onStateChange, onToggle }) => {
 
   // 3. Stop Camera
   const stopCamera = () => {
+    if (isSessionActive) return; // Cannot stop mid-session
     setIsActive(false);
     if (onToggle) onToggle(false);
     if (videoRef.current && videoRef.current.srcObject) {
@@ -159,7 +160,14 @@ const CameraMode = ({ onStateChange, onToggle }) => {
   };
 
   useEffect(() => {
-    return () => stopCamera();
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+      clearInterval(emotionIntervalRef.current);
+      clearInterval(postureIntervalRef.current);
+    };
   }, []);
 
   // UI Render Helpers
@@ -174,86 +182,93 @@ const CameraMode = ({ onStateChange, onToggle }) => {
     }
   };
 
-  if (!hasConsent && !isActive) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50 bg-[#161b22] border border-[#6366f1]/30 rounded-2xl p-6 text-center max-w-sm shadow-2xl animate-in slide-in-from-bottom-8">
-        <Camera size={32} className="text-[#6366f1] mx-auto mb-3" />
-        <h3 className="text-lg font-bold text-white mb-2">Enable Camera Mode</h3>
-        <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-          Your camera is processed locally in your browser. No video is ever stored or sent anywhere.
-        </p>
-        <button
-          onClick={startCamera}
-          className="w-full bg-[#6366f1] hover:bg-[#6366f1]/90 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-[#6366f1]/20"
-        >
-          I understand, enable camera
-        </button>
-      </div>
-    );
-  }
-
-  if (!isActive && hasConsent) {
-    return (
-      <button
-        onClick={startCamera}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-[#161b22] border border-[#6366f1]/30 hover:bg-[#6366f1]/10 px-4 py-3 rounded-xl text-white font-semibold shadow-xl transition-colors"
-      >
-        <Camera size={18} className="text-[#6366f1]" />
-        Start Camera Mode
-      </button>
-    );
-  }
-
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 animate-in slide-in-from-bottom-8">
-      {/* State Badge & Stats Overlay (above PiP) */}
-      <div className="flex flex-col items-end gap-2 mr-1">
-        {modelsLoaded && getStateBadge()}
-
-        {modelsLoaded && (
-          <div className="bg-[#161b22]/90 backdrop-blur-md border border-white/10 rounded-lg p-2.5 text-right shadow-xl">
-            <p className="text-[11px] font-medium text-gray-300">
-              Emotion: <span className="text-white capitalize">{emotionData.label}</span> <span className="text-[#6366f1]">({emotionData.confidence}%)</span>
-            </p>
-            <p className="text-[11px] font-medium text-gray-300 mt-1">
-              Posture: <span className="text-white">{postureData.label}</span>
-            </p>
+    <div className="flex flex-col h-full bg-[#1A2236] border border-[rgba(255,255,255,0.07)] rounded-[16px] overflow-hidden shadow-xl">
+      {/* Camera Header / Control Bar */}
+      <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-fa-brand/20 rounded-lg">
+            <Camera className="text-fa-brand" size={20} />
           </div>
-        )}
-      </div>
-
-      {/* Control / Toggle Bar */}
-      <div className="flex items-center gap-3 bg-[#161b22] border border-white/10 px-3 py-1.5 rounded-full shadow-lg">
-        <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          <span className="text-[10px] font-bold text-white uppercase tracking-wider">Active</span>
+          <h3 className="font-bold text-white">AI Monitor</h3>
         </div>
-        <div className="w-px h-3 bg-white/10"></div>
-        <button
-          onClick={stopCamera}
-          className="text-[10px] font-bold uppercase tracking-wider text-red-400 hover:text-red-300 flex items-center gap-1 transition-colors"
-        >
-          <CameraOff size={12} /> Stop
-        </button>
-      </div>
-
-      {/* PiP Window */}
-      <div className="relative bg-[#0d1117] rounded-xl overflow-hidden border-2 border-[#6366f1]/40 shadow-[0_8px_30px_rgb(0,0,0,0.5)] w-[160px] h-[120px]">
-        {!modelsLoaded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#161b22] z-20">
-            <Loader2 size={24} className="text-[#6366f1] animate-spin mb-2" />
-            <span className="text-[10px] text-gray-400 font-medium">Loading AI models...</span>
+        
+        {isActive && (
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Active</span>
+            </div>
+            {!isSessionActive && (
+              <button
+                onClick={stopCamera}
+                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors"
+              >
+                <CameraOff size={14} /> Stop
+              </button>
+            )}
           </div>
         )}
+      </div>
 
-        <video
-          ref={videoRef}
-          onPlay={handleVideoPlay}
-          autoPlay
-          muted
-          playsInline
-          className="w-full h-full object-cover transform scale-x-[-1]"
-        />
+      <div className="flex-1 relative min-h-0 bg-black flex items-center justify-center">
+        {!isActive ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-fa-brand/10 flex items-center justify-center mb-4 border border-fa-brand/20">
+              <Camera size={32} className="text-fa-brand" />
+            </div>
+            <h4 className="text-lg font-bold text-white mb-2">Camera Off</h4>
+            <p className="text-sm text-fa-text-secondary mb-6 max-w-[200px]">
+              Enable AI monitoring to track focus, posture, and emotions.
+            </p>
+            <button
+              onClick={startCamera}
+              className="px-6 py-2.5 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-xl font-bold transition-all shadow-lg shadow-fa-brand/20"
+            >
+              Enable AI Camera
+            </button>
+          </div>
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              onPlay={handleVideoPlay}
+              autoPlay
+              muted
+              playsInline
+              className="w-full h-full object-cover transform scale-x-[-1]"
+            />
+
+            {!modelsLoaded && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm z-20">
+                <Loader2 size={32} className="text-fa-brand animate-spin mb-3" />
+                <span className="text-xs text-fa-text-primary font-bold uppercase tracking-widest">Loading AI Models...</span>
+              </div>
+            )}
+
+            {/* Overlays */}
+            {modelsLoaded && (
+              <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-3 pointer-events-none">
+                <div className="flex justify-between items-end">
+                  <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl">
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-bold text-fa-text-secondary uppercase tracking-widest">Emotion</p>
+                      <p className="text-sm font-bold text-white capitalize">{emotionData.label} <span className="text-fa-brand ml-1">({emotionData.confidence}%)</span></p>
+                    </div>
+                  </div>
+                  {getStateBadge()}
+                </div>
+                
+                <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl">
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-bold text-fa-text-secondary uppercase tracking-widest">Posture Detection</p>
+                    <p className="text-sm font-bold text-white">{postureData.label}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

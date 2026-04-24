@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAI } from '../context/AIContext';
-import { Camera, CameraOff, AlertCircle } from 'lucide-react';
+import { Camera, CameraOff } from 'lucide-react';
 
 // =========================================================================
 // IMPORTANT: REPLACE THIS URL WITH YOUR ACTUAL GOOGLE TEACHABLE MACHINE URL
@@ -90,7 +90,7 @@ const WebcamAI = () => {
     const e = emotionLabel.toLowerCase();
     const p = postureLabel.toLowerCase();
     
-    let state = 'focused';
+    let state;
 
     if (p.includes('away')) {
       state = 'away';
@@ -152,7 +152,7 @@ const WebcamAI = () => {
         return;
       }
 
-      const { pose, posenetOutput } = await tmModel.estimatePose(videoRef.current);
+      const { posenetOutput } = await tmModel.estimatePose(videoRef.current);
       const prediction = await tmModel.predict(posenetOutput);
       
       if (prediction && prediction.length > 0) {

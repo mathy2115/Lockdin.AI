@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Edit3, ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -10,7 +10,7 @@ const Onboarding = () => {
     fullName: '',
     age: '',
     grade: '',
-    studyMode: '',
+    studyMode: 'cam',
     stressLevel: 5,
     bestTime: '',
     midSessionFeeling: '',
@@ -39,7 +39,7 @@ const Onboarding = () => {
     navigate('/dashboard');
   };
 
-  const nextStep = () => setStep(s => Math.min(s + 1, 5));
+  const nextStep = () => setStep(s => Math.min(s + 1, 4));
   const prevStep = () => setStep(s => Math.max(s - 1, 1));
 
   const renderProgressBar = () => (
@@ -47,10 +47,10 @@ const Onboarding = () => {
       <div className="h-1 w-full bg-fa-bg-shell rounded-full overflow-hidden">
         <div 
           className="h-full bg-fa-brand transition-all duration-500 ease-out"
-          style={{ width: `${(step / 5) * 100}%` }}
+          style={{ width: `${(step / 4) * 100}%` }}
         />
       </div>
-      <div className="mt-2 text-xs text-fa-text-muted text-right">Step {step} of 5</div>
+      <div className="mt-2 text-xs text-fa-text-muted text-right">Step {step} of 4</div>
     </div>
   );
 
@@ -112,50 +112,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* STEP 2: Study Mode */}
+          {/* STEP 2: Study Personality */}
           {step === 2 && (
-            <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-              <h2 className="font-['Sora'] text-2xl font-bold text-fa-text-primary mb-6">How would you like lockdin.ai to support you?</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <button
-                  onClick={() => updateForm('studyMode', 'cam')}
-                  className={`p-6 rounded-2xl border-2 text-left transition-all ${
-                    formData.studyMode === 'cam' 
-                      ? 'border-fa-brand bg-fa-brand/10 shadow-lg shadow-fa-brand/10' 
-                      : 'border-fa-border bg-fa-bg-page hover:border-fa-text-muted'
-                  }`}
-                >
-                  <div className={`p-3 rounded-full w-fit mb-4 ${formData.studyMode === 'cam' ? 'bg-fa-brand text-white' : 'bg-fa-bg-shell text-fa-text-secondary'}`}>
-                    <Camera size={24} />
-                  </div>
-                  <h3 className="font-semibold text-lg text-fa-text-primary mb-2">Cam Mode</h3>
-                  <p className="text-sm text-fa-text-secondary leading-relaxed">
-                    Let our AI watch you through your webcam and automatically detect when you're distracted, stressed, or fatigued. We never store footage — it's all live.
-                  </p>
-                </button>
-                
-                <button
-                  onClick={() => updateForm('studyMode', 'manual')}
-                  className={`p-6 rounded-2xl border-2 text-left transition-all ${
-                    formData.studyMode === 'manual' 
-                      ? 'border-fa-brand bg-fa-brand/10 shadow-lg shadow-fa-brand/10' 
-                      : 'border-fa-border bg-fa-bg-page hover:border-fa-text-muted'
-                  }`}
-                >
-                  <div className={`p-3 rounded-full w-fit mb-4 ${formData.studyMode === 'manual' ? 'bg-fa-brand text-white' : 'bg-fa-bg-shell text-fa-text-secondary'}`}>
-                    <Edit3 size={24} />
-                  </div>
-                  <h3 className="font-semibold text-lg text-fa-text-primary mb-2">Manual Mode</h3>
-                  <p className="text-sm text-fa-text-secondary leading-relaxed">
-                    Prefer to keep your camera off? You can manually log your mood and stress levels before and after each session.
-                  </p>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: Study Personality */}
-          {step === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <h2 className="font-['Sora'] text-2xl font-bold text-fa-text-primary mb-6">Let's get to know how you study</h2>
               <div className="space-y-8">
@@ -271,8 +229,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* STEP 4: About You */}
-          {step === 4 && (
+          {/* STEP 3: About You */}
+          {step === 3 && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">
               <h2 className="font-['Sora'] text-2xl font-bold text-fa-text-primary mb-2">Anything else?</h2>
               <p className="text-fa-text-secondary mb-6">Tell us anything else you want lockdin.ai to know about you. (Optional)</p>
@@ -287,8 +245,8 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* STEP 5: Completion */}
-          {step === 5 && (
+          {/* STEP 4: Completion */}
+          {step === 4 && (
             <div className="animate-in zoom-in duration-500 text-center py-8">
               <div className="w-20 h-20 bg-fa-brand/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <Check className="w-10 h-10 text-fa-brand" />
@@ -310,7 +268,7 @@ const Onboarding = () => {
           )}
 
           {/* Navigation Buttons */}
-          {step < 5 && (
+          {step < 4 && (
             <div className="mt-8 flex items-center justify-between pt-6 border-t border-fa-border">
               {step > 1 ? (
                 <button
@@ -324,7 +282,7 @@ const Onboarding = () => {
               )}
               
               <div className="flex space-x-3">
-                {step === 4 && (
+                {step === 3 && (
                   <button
                     onClick={nextStep}
                     className="px-6 py-2 rounded-lg text-fa-text-muted hover:text-fa-text-secondary transition-colors"
@@ -335,12 +293,11 @@ const Onboarding = () => {
                 <button
                   onClick={nextStep}
                   disabled={
-                    (step === 1 && (!formData.fullName || !formData.age || !formData.grade)) ||
-                    (step === 2 && !formData.studyMode)
+                    (step === 1 && (!formData.fullName || !formData.age || !formData.grade))
                   }
                   className="flex items-center space-x-2 px-6 py-2 bg-fa-brand text-white rounded-lg hover:bg-fa-brand/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>{step === 4 ? 'Continue' : 'Next'}</span>
+                  <span>{step === 3 ? 'Continue' : 'Next'}</span>
                   <ArrowRight size={18} />
                 </button>
               </div>

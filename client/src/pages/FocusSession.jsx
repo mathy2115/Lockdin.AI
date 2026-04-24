@@ -1,29 +1,28 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import TaskManager from '../components/TaskManager';
 import MoodCheckIn from '../components/MoodCheckIn';
 import AdaptiveNudgeSystem from '../components/AdaptiveNudgeSystem';
 import CameraMode from '../components/CameraMode';
 import { useAI } from '../context/AIContext';
+import { useTimer } from '../context/TimerContext';
 import { Loader2, Sparkles, X } from 'lucide-react';
 
 const FocusSession = () => {
   const [activeTask, setActiveTask] = useState(null);
   const [showMoodModal, setShowMoodModal] = useState(false);
+  const { isRunning } = useTimer();
   const [modalType, setModalType] = useState('before'); // 'before' or 'after'
   const [startTimerCallback, setStartTimerCallback] = useState(null);
   const [aiDebrief, setAiDebrief] = useState(null);
   const [isDebriefLoading, setIsDebriefLoading] = useState(false);
+  const [sessionDuration, setSessionDuration] = useState(0);
   
   const { getSessionBreakdown, resetSessionBreakdown } = useAI();
 
-  // Manual test state vs Real camera state
-  const [systemState, setSystemState] = useState('focused');
+  // Camera state
   const [cameraState, setCameraState] = useState('focused');
   const [isCameraActive, setIsCameraActive] = useState(false);
-
-  // Fallback to testing dropdown if camera is off, otherwise use camera state
-  const activeState = isCameraActive ? cameraState : systemState;
 
   const handleStartTimer = (startCallback) => {
     setModalType('before');
@@ -32,19 +31,22 @@ const FocusSession = () => {
     setShowMoodModal(true);
   };
 
-  const handleSessionComplete = () => {
+  const handleSessionComplete = (durationInSeconds) => {
+    setSessionDuration(durationInSeconds || 0);
     setModalType('after');
     setShowMoodModal(true);
   };
 
   const handleMoodSubmit = async (moodData) => {
     setShowMoodModal(false);
-    if (modalType === 'before' && startTimerCallback) {
-      startTimerCallback();
-      setStartTimerCallback(null);
+    
+    if (modalType === 'before') {
+      if (startTimerCallback) {
+        startTimerCallback(moodData.recommendation);
+        setStartTimerCallback(null);
+      }
     } else if (modalType === 'after') {
       setIsDebriefLoading(true);
-      
       const breakdown = getSessionBreakdown();
       
       try {
@@ -52,8 +54,8 @@ const FocusSession = () => {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            duration: 25, // Mocked 25 mins
-            task: activeTask?.title || 'Deep Work Session',
+            duration: Math.round(sessionDuration / 60),
+            task: activeTask || 'Deep Work Session',
             focusScore: 8,
             moodBefore: 5,
             moodAfter: moodData?.mood || 7,
@@ -70,7 +72,7 @@ const FocusSession = () => {
         });
         const data = await response.json();
         setAiDebrief(data.message || data.error);
-      } catch (err) {
+      } catch {
         setAiDebrief('Great session! Make sure to take a good break before your next one.');
       } finally {
         setIsDebriefLoading(false);
@@ -91,47 +93,31 @@ const FocusSession = () => {
       <header className="flex items-center justify-between pb-6 mb-6 border-b border-fa-border flex-shrink-0">
         <div>
           <h2 className="text-2xl font-['Sora'] font-bold text-fa-text-primary">Focus Session</h2>
-          <p className="text-fa-text-secondary mt-1">Manual mode — dive into deep work.</p>
+          <p className="text-fa-text-secondary mt-1">AI-powered deep work session.</p>
         </div>
-        
-        {/* State Controller */}
-        {!isCameraActive ? (
-          <div className="flex items-center gap-3 bg-fa-bg-page border border-fa-border p-2 rounded-lg">
-            <span className="text-xs text-fa-text-secondary font-medium uppercase tracking-wider">Test State:</span>
-            <select 
-              value={systemState}
-              onChange={(e) => setSystemState(e.target.value)}
-              className="bg-fa-bg-hover text-sm border-none rounded px-2 py-1 text-fa-text-primary focus:outline-none focus:ring-1 focus:ring-fa-brand"
-            >
-              <option value="focused">Focused</option>
-              <option value="distracted">Distracted</option>
-              <option value="stressed">Stressed</option>
-              <option value="fatigued">Fatigued</option>
-              <option value="away">Away</option>
-            </select>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 bg-fa-brand/10 border border-fa-brand/30 p-2 rounded-lg">
-            <span className="text-xs text-fa-brand font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-fa-brand animate-pulse"></span>
-              AI Camera Mode Active
-            </span>
-          </div>
-        )}
       </header>
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 overflow-y-auto custom-scrollbar">
-        <div className="w-full lg:w-[60%] flex flex-col min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-0 mb-6 items-stretch">
+        <div className="flex flex-col h-full">
           <PomodoroTimer 
             activeTask={activeTask} 
+            cameraActive={isCameraActive}
             onStart={handleStartTimer} 
             onSessionComplete={handleSessionComplete} 
           />
         </div>
         
-        <div className="w-full lg:w-[40%] flex flex-col min-h-0 h-[800px] lg:h-auto">
-          <TaskManager onFocusTask={setActiveTask} />
+        <div className="flex flex-col h-full">
+          <CameraMode 
+            onStateChange={(state) => setCameraState(state)} 
+            onToggle={(isActive) => setIsCameraActive(isActive)}
+            isSessionActive={isRunning}
+          />
         </div>
+      </div>
+
+      <div className="w-full mt-auto">
+        <TaskManager onFocusTask={setActiveTask} />
       </div>
 
       {showMoodModal && (
@@ -142,19 +128,11 @@ const FocusSession = () => {
         />
       )}
 
-      {/* Adaptive Nudge System */}
       <AdaptiveNudgeSystem 
-        currentState={activeState} 
-        currentTask={activeTask?.title || 'your task'} 
+        currentState={cameraState} 
+        currentTask={activeTask || 'your task'} 
       />
 
-      {/* Camera Mode Component */}
-      <CameraMode 
-        onStateChange={(state) => setCameraState(state)} 
-        onToggle={(isActive) => setIsCameraActive(isActive)}
-      />
-
-      {/* AI Post-Session Debrief Loading */}
       {isDebriefLoading && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#1A2236] border border-fa-brand/30 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
@@ -164,7 +142,6 @@ const FocusSession = () => {
         </div>
       )}
 
-      {/* AI Post-Session Debrief Modal */}
       {aiDebrief && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-gradient-to-b from-[#1A1E2E] to-[#2D243F] border border-fa-brand/30 rounded-[20px] p-8 w-full max-w-[500px] shadow-[0_0_50px_rgba(111,76,255,0.15)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
@@ -176,15 +153,23 @@ const FocusSession = () => {
               <X size={18} />
             </button>
 
+            {sessionDuration < 600 && (
+              <div className="absolute top-0 left-0 right-0 bg-amber-500/20 border-b border-amber-500/30 py-2 text-center z-20">
+                <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center justify-center gap-2">
+                  ⚠️ Short session — insights may be limited
+                </p>
+              </div>
+            )}
+
             <div className="absolute top-0 right-0 w-40 h-40 bg-fa-brand/10 rounded-bl-full z-0 blur-xl"></div>
             
-            <div className="relative z-10 flex flex-col items-center text-center">
+            <div className="relative z-10 flex flex-col items-center text-center mt-4">
               <div className="w-16 h-16 rounded-full bg-fa-brand/20 flex items-center justify-center mb-6 border border-fa-brand/30 shadow-[0_0_15px_rgba(111,76,255,0.4)]">
                 <Sparkles size={32} className="text-fa-brand" />
               </div>
               <h2 className="text-2xl font-bold text-white mb-6 font-['Sora']">Session Debrief</h2>
               
-              <div className="bg-black/20 border border-white/5 rounded-xl p-6 mb-8 text-left w-full shadow-inner">
+              <div className="bg-black/20 border border-white/5 rounded-xl p-6 mb-8 text-left w-full shadow-inner overflow-y-auto max-h-[300px] custom-scrollbar">
                 <p className="text-fa-text-primary text-sm leading-relaxed whitespace-pre-wrap">
                   {aiDebrief}
                 </p>

@@ -1,142 +1,31 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect } from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { useTimer } from '../context/TimerContext';
 
-const PomodoroTimer = ({ activeTask, onStart, onSessionComplete }) => {
-  const [mode, setMode] = useState('Classic');
-  const [phase, setPhase] = useState('Work');
-  const [isRunning, setIsRunning] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [customWork, setCustomWork] = useState(25);
-  const [customBreak, setCustomBreak] = useState(5);
-  const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  const [showCongrats, setShowCongrats] = useState(false);
+const PomodoroTimer = ({ activeTask, cameraActive, onStart, onSessionComplete }) => {
+  const {
+    mode, phase, isRunning, timeLeft, customWork, customBreak,
+    sessionsCompleted, showCongrats, initialTimeLeft,
+    setCustomWork, setCustomBreak,
+    startTimer, pauseTimer, resetTimer, changeMode,
+    onSessionCompleteRef, finishSessionEarly
+  } = useTimer();
 
-  const initialTimeLeft = useRef(25 * 60);
-  const endTimeRef = useRef(null);
-  const phaseRef = useRef('Work');
-  const modeRef = useRef('Classic');
-  const customWorkRef = useRef(25);
-  const customBreakRef = useRef(5);
-
-  useEffect(() => { phaseRef.current = phase; }, [phase]);
-  useEffect(() => { modeRef.current = mode; }, [mode]);
-  useEffect(() => { customWorkRef.current = customWork; }, [customWork]);
-  useEffect(() => { customBreakRef.current = customBreak; }, [customBreak]);
-
-  const MODES = {
-    Classic: { work: 25 * 60, break: 5 * 60 },
-    'Deep Work': { work: 50 * 60, break: 10 * 60 },
-  };
-
-  const handlePhaseEnd = useCallback(() => {
-    setIsRunning(false);
-    endTimeRef.current = null;
-
-    if (phaseRef.current === 'Work') {
-      setSessionsCompleted((prev) => prev + 1);
-      setShowCongrats(true);
-      setTimeout(() => setShowCongrats(false), 3000);
-      if (onSessionComplete) onSessionComplete();
-      const breakTime = modeRef.current === 'Custom'
-        ? customBreakRef.current * 60
-        : MODES[modeRef.current].break;
-      setPhase('Break');
-      setTimeLeft(breakTime);
-      initialTimeLeft.current = breakTime;
-    } else {
-      const workTime = modeRef.current === 'Custom'
-        ? customWorkRef.current * 60
-        : MODES[modeRef.current].work;
-      setPhase('Work');
-      setTimeLeft(workTime);
-      initialTimeLeft.current = workTime;
-    }
-  }, [onSessionComplete]);
-
-  // Main countdown interval
   useEffect(() => {
-    let interval = null;
-    if (isRunning) {
-      if (!endTimeRef.current) {
-        endTimeRef.current = Date.now() + timeLeft * 1000;
-      }
-      interval = setInterval(() => {
-        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
-        if (remaining <= 0) {
-          handlePhaseEnd();
-        } else {
-          setTimeLeft(remaining);
-        }
-      }, 500);
-    }
-    return () => clearInterval(interval);
-  }, [isRunning, handlePhaseEnd]);
-
-  // Snap timer when returning to tab
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && isRunning && endTimeRef.current) {
-        const remaining = Math.round((endTimeRef.current - Date.now()) / 1000);
-        if (remaining <= 0) {
-          handlePhaseEnd();
-        } else {
-          setTimeLeft(remaining);
-        }
-      }
+    onSessionCompleteRef.current = () => {
+      // Pass the actual duration spent in work phase
+      const totalWorkTime = mode === 'Custom' 
+        ? customWork * 60 
+        : (mode === 'Deep Work' ? 50 * 60 : 25 * 60);
+      const durationSpent = totalWorkTime - timeLeft;
+      if (onSessionComplete) onSessionComplete(durationSpent);
     };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [isRunning, handlePhaseEnd]);
-
-  // Update document title
-  useEffect(() => {
-    const minutes = Math.floor(timeLeft / 60);
-    const seconds = timeLeft % 60;
-    document.title = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} - Lockdin.AI`;
-  }, [timeLeft]);
-
-  const startTimer = () => {
-    if (!isRunning && phase === 'Work' && timeLeft === initialTimeLeft.current) {
-      if (onStart) onStart(() => setIsRunning(true));
-      else setIsRunning(true);
-    } else {
-      setIsRunning(true);
-    }
-  };
-
-  const pauseTimer = () => setIsRunning(false);
-
-  const resetTimer = () => {
-    setIsRunning(false);
-    endTimeRef.current = null;
-    setPhase('Work');
-    const workTime = mode === 'Custom' ? customWork * 60 : MODES[mode].work;
-    setTimeLeft(workTime);
-    initialTimeLeft.current = workTime;
-  };
-
-  const changeMode = (newMode) => {
-    setMode(newMode);
-    setIsRunning(false);
-    endTimeRef.current = null;
-    setPhase('Work');
-    const workTime = newMode === 'Custom' ? customWork * 60 : MODES[newMode]?.work || customWork * 60;
-    setTimeLeft(workTime);
-    initialTimeLeft.current = workTime;
-  };
-
-  useEffect(() => {
-    if (mode === 'Custom' && !isRunning && phase === 'Work') {
-      const workTime = customWork * 60;
-      setTimeLeft(workTime);
-      initialTimeLeft.current = workTime;
-    }
-  }, [customWork, mode, isRunning, phase]);
+  }, [onSessionComplete, onSessionCompleteRef, mode, customWork, timeLeft]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
-    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   const progressPercentage = ((initialTimeLeft.current - timeLeft) / initialTimeLeft.current) * 100;
@@ -149,17 +38,33 @@ const PomodoroTimer = ({ activeTask, onStart, onSessionComplete }) => {
     return 'Custom';
   };
 
-  return (
-    <div className="bg-[#1A2236] border border-[rgba(255,255,255,0.07)] rounded-[16px] p-8 flex flex-col items-center relative overflow-hidden">
+  const handleStartClick = () => {
+    if (!cameraActive) return;
+    const startWithRecommendation = (recommendedMode) => {
+      if (recommendedMode === 'Classic') changeMode('Classic');
+      startTimer();
+    };
+    if (onStart) onStart(startWithRecommendation);
+    else startTimer();
+  };
 
+  useEffect(() => {
+    if (isRunning && !cameraActive) {
+      pauseTimer();
+    }
+  }, [isRunning, cameraActive, pauseTimer]);
+
+  return (
+    <div className="bg-[#1A2236] border border-[rgba(255,255,255,0.07)] h-full rounded-[16px] p-8 flex flex-col items-center relative overflow-hidden shadow-xl">
       <div className="flex space-x-2 bg-fa-bg-page p-1 rounded-full mb-3">
         {['Classic', 'Deep Work', 'Custom'].map((m) => (
           <button
             key={m}
             onClick={() => changeMode(m)}
+            disabled={isRunning}
             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
               mode === m ? 'bg-fa-brand text-white' : 'text-fa-text-secondary hover:text-fa-text-primary'
-            }`}
+            } ${isRunning ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {m}
           </button>
@@ -167,91 +72,115 @@ const PomodoroTimer = ({ activeTask, onStart, onSessionComplete }) => {
       </div>
 
       {mode !== 'Custom' && (
-        <p className="text-xs text-fa-text-muted mb-6">{getModeLabel(mode)}</p>
+        <p className="text-xs text-fa-text-muted mb-6 uppercase tracking-widest font-bold">{getModeLabel(mode)}</p>
       )}
 
       {mode === 'Custom' && (
         <div className="flex space-x-4 mb-6">
           <div className="flex flex-col items-center">
-            <label className="text-xs text-fa-text-muted mb-1">Work (min)</label>
+            <label className="text-[10px] font-black text-fa-text-secondary mb-1 uppercase tracking-tighter">Work (min)</label>
             <input
               type="number"
               value={customWork}
               onChange={(e) => setCustomWork(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-16 bg-fa-bg-page border border-fa-border rounded-lg text-center text-fa-text-primary py-1 outline-none focus:border-fa-brand"
+              disabled={isRunning}
+              className="w-16 bg-fa-bg-page border border-fa-border rounded-lg text-center text-fa-text-primary py-1 outline-none focus:border-fa-brand disabled:opacity-50"
             />
           </div>
           <div className="flex flex-col items-center">
-            <label className="text-xs text-fa-text-muted mb-1">Break (min)</label>
+            <label className="text-[10px] font-black text-fa-text-secondary mb-1 uppercase tracking-tighter">Break (min)</label>
             <input
               type="number"
               value={customBreak}
               onChange={(e) => setCustomBreak(Math.max(1, parseInt(e.target.value) || 1))}
-              className="w-16 bg-fa-bg-page border border-fa-border rounded-lg text-center text-fa-text-primary py-1 outline-none focus:border-fa-brand"
+              disabled={isRunning}
+              className="w-16 bg-fa-bg-page border border-fa-border rounded-lg text-center text-fa-text-primary py-1 outline-none focus:border-fa-brand disabled:opacity-50"
             />
           </div>
         </div>
       )}
 
-      <div className="relative mb-6 text-center">
-        <h1 className="font-['JetBrains_Mono',monospace] text-7xl font-light text-[#F0F4FF] tracking-tight mb-2">
+      <div className="relative mb-6 text-center mt-4">
+        <h1 className="font-['JetBrains_Mono',monospace] text-8xl font-light text-white tracking-tighter mb-2">
           {formatTime(timeLeft)}
         </h1>
-        <div className={`text-xs font-semibold tracking-widest uppercase ${textColorClass}`}>
-          {mode} · SESSION {sessionsCompleted + 1} {phase === 'Break' ? '· BREAK TIME' : '· WORK'}
+        <div className={`text-[10px] font-black tracking-[0.2em] uppercase ${textColorClass}`}>
+          {phase === 'Break' ? '· Recharge ·' : `· Focus Session ${sessionsCompleted + 1} ·`}
         </div>
       </div>
 
-      <div className="w-full max-w-xs h-1 bg-fa-bg-page rounded-full overflow-hidden mb-10">
+      <div className="w-full max-w-sm h-1.5 bg-white/5 rounded-full overflow-hidden mb-12">
         <div
-          className={`h-full ${bgProgressClass} transition-all duration-500 ease-linear`}
+          className={`h-full ${bgProgressClass} transition-all duration-500 ease-linear shadow-[0_0_10px_rgba(111,76,255,0.5)]`}
           style={{ width: `${progressPercentage}%` }}
         />
       </div>
 
-      <div className="flex items-center space-x-4 mb-8 z-10">
-        {!isRunning ? (
+      <div className="flex flex-col items-center gap-4 w-full max-w-xs z-10">
+        <div className="flex items-center space-x-4 w-full">
+          {!isRunning ? (
+            <button
+              onClick={handleStartClick}
+              disabled={!cameraActive}
+              className={`flex-1 flex items-center justify-center space-x-2 py-4 rounded-2xl font-bold transition-all ${
+                cameraActive 
+                  ? 'bg-fa-brand text-white shadow-lg shadow-fa-brand/30 hover:scale-[1.02] active:scale-100' 
+                  : 'bg-white/5 text-fa-text-muted cursor-not-allowed border border-white/5'
+              }`}
+            >
+              <Play size={20} fill="currentColor" />
+              <span>Start Session</span>
+            </button>
+          ) : (
+            <button
+              onClick={pauseTimer}
+              className="flex-1 flex items-center justify-center space-x-2 py-4 border-2 border-fa-brand/30 text-fa-brand rounded-2xl hover:bg-fa-brand/5 transition-all font-bold"
+            >
+              <Pause size={20} fill="currentColor" />
+              <span>Pause</span>
+            </button>
+          )}
           <button
-            onClick={startTimer}
-            className="flex items-center justify-center space-x-2 w-32 py-3 bg-fa-brand text-white rounded-xl shadow-lg shadow-fa-brand/20 hover:bg-fa-brand/90 transition-all font-medium"
+            onClick={resetTimer}
+            className="w-14 h-14 flex items-center justify-center text-fa-text-muted hover:text-white hover:bg-white/5 rounded-2xl transition-all border border-white/5"
+            title="Reset Timer"
           >
-            <Play size={18} fill="currentColor" />
-            <span>Start</span>
+            <RotateCcw size={22} />
           </button>
-        ) : (
-          <button
-            onClick={pauseTimer}
-            className="flex items-center justify-center space-x-2 w-32 py-3 border border-fa-brand text-fa-brand rounded-xl hover:bg-fa-brand/10 transition-all font-medium bg-transparent"
-          >
-            <Pause size={18} fill="currentColor" />
-            <span>Pause</span>
-          </button>
-        )}
-        <button
-          onClick={resetTimer}
-          className="flex items-center justify-center w-12 h-12 text-fa-text-muted hover:text-fa-text-secondary hover:bg-fa-bg-page rounded-xl transition-all bg-transparent border border-transparent"
-        >
-          <RotateCcw size={20} />
-        </button>
-      </div>
-
-      <div className="w-full border-t border-fa-border pt-6 mt-auto">
-        <div className="flex justify-between items-center text-sm mb-4">
-          <span className="text-fa-text-muted">Sessions today:</span>
-          <span className="text-fa-text-primary font-medium">{sessionsCompleted}</span>
         </div>
 
+        {isRunning && phase === 'Work' && (
+          <button
+            onClick={finishSessionEarly}
+            className="w-full py-3 text-xs font-black uppercase tracking-widest text-fa-text-secondary hover:text-white transition-colors"
+          >
+            Finish Session Early
+          </button>
+        )}
+
+        {!cameraActive && (
+          <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest animate-pulse text-center">
+            {isRunning ? '⚠️ Session paused — camera disconnected' : '⚠️ Enable camera to start session'}
+          </p>
+        )}
+      </div>
+
+      <div className="w-full border-t border-white/5 pt-8 mt-auto">
         {activeTask && (
-          <div className="bg-fa-bg-page p-4 rounded-xl border border-fa-border text-left">
-            <span className="text-xs text-fa-text-muted block mb-1">Currently working on:</span>
-            <span className="text-sm font-medium text-fa-text-primary truncate block">{activeTask}</span>
+          <div className="bg-white/[0.02] p-4 rounded-2xl border border-white/5 text-center mb-4">
+            <span className="text-[10px] font-black text-fa-text-secondary uppercase tracking-widest block mb-1">Active Target</span>
+            <span className="text-sm font-bold text-white truncate block">{activeTask}</span>
           </div>
         )}
+        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+          <span className="text-fa-text-secondary">Completed Sessions</span>
+          <span className="text-fa-brand bg-fa-brand/10 px-2 py-0.5 rounded">{sessionsCompleted}</span>
+        </div>
       </div>
 
       {showCongrats && (
-        <div className="absolute top-8 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-6 py-3 rounded-full animate-in fade-in slide-in-from-top-4 shadow-lg text-sm font-medium">
-          Session complete! Take a break.
+        <div className="absolute top-12 bg-emerald-500 text-white px-6 py-2 rounded-full animate-in fade-in slide-in-from-top-4 shadow-xl text-xs font-black uppercase tracking-widest">
+          Mission Accomplished!
         </div>
       )}
     </div>

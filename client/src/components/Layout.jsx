@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Timer, CheckSquare, HeartPulse, Settings, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Timer, HeartPulse, Settings, BookOpen } from 'lucide-react';
 
 const Layout = ({ children }) => {
   const location = useLocation();
@@ -9,7 +8,6 @@ const Layout = ({ children }) => {
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Focus Session', path: '/focus', icon: Timer },
     { name: 'Academic Planner', path: '/planner', icon: BookOpen },
-    { name: 'Tasks', path: '/tasks', icon: CheckSquare },
     { name: 'Wellness', path: '/wellness', icon: HeartPulse },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
