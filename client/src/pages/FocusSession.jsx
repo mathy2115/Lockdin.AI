@@ -116,9 +116,84 @@ const FocusSession = () => {
         </div>
       </div>
 
-      <div className="w-full mt-auto">
-        <TaskManager onFocusTask={setActiveTask} />
+      {/* Your Tasks Section */}
+      <div className="w-full mt-auto bg-[#161b22] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+          <h3 className="font-bold text-white flex items-center gap-2">
+            <CheckSquare size={18} className="text-fa-brand" />
+            Your Tasks
+          </h3>
+          <span className="text-xs font-bold text-fa-text-muted bg-white/5 px-2 py-1 rounded-full uppercase tracking-widest">
+            Focused Work
+          </span>
+        </div>
+        
+        <div className="h-[250px] overflow-y-auto p-6 custom-scrollbar-purple">
+          {(() => {
+            const allTasks = JSON.parse(localStorage.getItem('academicTasks') || '[]');
+            const activeTasks = allTasks.filter(t => t.status === 'todo' || t.status === 'inprogress');
+            
+            if (activeTasks.length === 0) {
+              return (
+                <div className="h-full flex flex-col items-center justify-center text-fa-text-muted opacity-50">
+                  <CheckSquare size={32} className="mb-2" />
+                  <p className="text-sm font-medium">No tasks yet. Add tasks in Academic Hub.</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {activeTasks.map(task => (
+                  <div 
+                    key={task.id}
+                    onClick={() => setActiveTask(task.topic || task.title)}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer group ${
+                      activeTask === (task.topic || task.title) 
+                        ? 'bg-fa-brand/10 border-fa-brand shadow-lg shadow-fa-brand/10' 
+                        : 'bg-[#0d1117] border-white/10 hover:border-fa-brand/50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[10px] font-black text-fa-brand bg-fa-brand/10 px-2 py-0.5 rounded uppercase tracking-widest">
+                        {task.subject}
+                      </span>
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+                        task.status === 'inprogress' ? 'bg-blue-500/20 text-blue-400' : 'bg-amber-500/20 text-amber-400'
+                      }`}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-white mb-1 group-hover:text-fa-brand transition-colors">
+                      {task.topic || task.title}
+                    </h4>
+                    <p className="text-[11px] text-fa-text-secondary line-clamp-1">
+                      {task.subTopic || task.description || 'No description'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar-purple::-webkit-scrollbar {
+          width: 6px;
+        }
+        .custom-scrollbar-purple::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 10px;
+        }
+        .custom-scrollbar-purple::-webkit-scrollbar-thumb {
+          background: rgba(99, 102, 241, 0.3);
+          border-radius: 10px;
+        }
+        .custom-scrollbar-purple::-webkit-scrollbar-thumb:hover {
+          background: rgba(99, 102, 241, 0.5);
+        }
+      `}} />
 
       {showMoodModal && (
         <MoodCheckIn 

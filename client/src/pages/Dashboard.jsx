@@ -9,6 +9,58 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  // --- LOCALSTORAGE CALCULATIONS ---
+  const focusSessions = JSON.parse(localStorage.getItem('focusSessions') || '[]');
+  const academicTasks = JSON.parse(localStorage.getItem('academicTasks') || '[]');
+  const moodLogs = JSON.parse(localStorage.getItem('moodLogs') || '[]');
+
+  // 1. Today's Focus
+  const today = new Date().toISOString().split('T')[0];
+  const todaySeconds = focusSessions
+    .filter(s => s.date === today)
+    .reduce((acc, s) => acc + (s.duration || 0), 0);
+  const todayHours = (todaySeconds / 3600).toFixed(1);
+
+  // 2. Current Streak
+  const calculateStreak = () => {
+    if (focusSessions.length === 0) return 0;
+    const sortedDates = [...new Set(focusSessions.map(s => s.date))].sort().reverse();
+    let streak = 0;
+    let curr = new Date();
+    
+    for (let date of sortedDates) {
+      const d = new Date(date);
+      const diff = Math.floor((curr - d) / (1000 * 60 * 60 * 24));
+      if (diff <= 1) {
+        streak++;
+        curr = d;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  };
+  const streak = calculateStreak();
+
+  // 3. Tasks Completed
+  const completedTasksCount = academicTasks.filter(t => t.status === 'done').length;
+
+  // 4. Burnout Risk
+  const getBurnoutRisk = () => {
+    if (moodLogs.length === 0) return 'No data';
+    const latestMood = moodLogs[moodLogs.length - 1].mood; // Assuming 1-10 scale
+    if (latestMood <= 3) return 'High';
+    if (latestMood <= 6) return 'Medium';
+    return 'Low';
+  };
+  const burnoutRisk = getBurnoutRisk();
+
+  // 5. Up Next (2 upcoming tasks)
+  const upNext = academicTasks
+    .filter(t => t.status !== 'done' && t.date)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 2);
+
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       <header className="flex items-center justify-between pb-6 border-b border-fa-border mb-6">
@@ -33,8 +85,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Today's Focus</span>
               <Timer size={18} className="text-fa-brand" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">2.5h</div>
-            <div className="text-xs text-green-400 font-medium">+45m from yesterday</div>
+            <div className="text-3xl font-bold text-white mb-1">{todayHours}h</div>
+            <div className="text-xs text-fa-text-muted font-medium">Recorded today</div>
           </div>
 
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-5 shadow-sm">
@@ -42,8 +94,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Current Streak</span>
               <Flame size={18} className="text-orange-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">4 Days</div>
-            <div className="text-xs text-fa-text-muted font-medium">Keep it up!</div>
+            <div className="text-3xl font-bold text-white mb-1">{streak} {streak === 1 ? 'Day' : 'Days'}</div>
+            <div className="text-xs text-fa-text-muted font-medium">{streak > 0 ? 'Keep it up!' : 'Start a session!'}</div>
           </div>
 
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-5 shadow-sm">
@@ -51,8 +103,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Tasks Completed</span>
               <CheckSquare size={18} className="text-green-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">6</div>
-            <div className="text-xs text-fa-text-muted font-medium">2 remaining today</div>
+            <div className="text-3xl font-bold text-white mb-1">{completedTasksCount}</div>
+            <div className="text-xs text-fa-text-muted font-medium">All time</div>
           </div>
 
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-5 shadow-sm cursor-pointer hover:border-fa-brand/50 transition-colors" onClick={() => navigate('/wellness')}>
@@ -60,8 +112,8 @@ const Dashboard = () => {
               <span className="text-sm font-semibold text-fa-text-secondary">Burnout Risk</span>
               <HeartPulse size={18} className="text-blue-400" />
             </div>
-            <div className="text-3xl font-bold text-white mb-1">Low</div>
-            <div className="text-xs text-fa-text-muted font-medium">Click to see Wellness</div>
+            <div className="text-3xl font-bold text-white mb-1">{burnoutRisk}</div>
+            <div className="text-xs text-fa-text-muted font-medium">Based on latest check-in</div>
           </div>
         </div>
 
@@ -79,20 +131,21 @@ const Dashboard = () => {
           <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-8 shadow-sm">
             <h3 className="text-lg font-bold text-white mb-4">Up Next</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between bg-fa-bg-page p-3 rounded-xl border border-fa-border/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                  <span className="text-sm font-medium text-fa-text-primary">Calculus Assignment</span>
-                </div>
-                <span className="text-xs font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">Today</span>
-              </div>
-              <div className="flex items-center justify-between bg-fa-bg-page p-3 rounded-xl border border-fa-border/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-                  <span className="text-sm font-medium text-fa-text-primary">Read Chapter 4</span>
-                </div>
-                <span className="text-xs font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">Tomorrow</span>
-              </div>
+              {upNext.length === 0 ? (
+                <p className="text-sm text-fa-text-muted italic">No upcoming tasks scheduled.</p>
+              ) : (
+                upNext.map(task => (
+                  <div key={task.id} className="flex items-center justify-between bg-fa-bg-page p-3 rounded-xl border border-fa-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full ${task.priority === 'High' ? 'bg-red-400' : 'bg-blue-400'}`}></div>
+                      <span className="text-sm font-medium text-fa-text-primary">{task.topic || task.title}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-fa-text-secondary bg-fa-bg-hover px-2 py-1 rounded">
+                      {new Date(task.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
             <button className="text-sm text-fa-brand font-medium mt-5 hover:underline" onClick={() => navigate('/planner')}>
               View academic hub →
