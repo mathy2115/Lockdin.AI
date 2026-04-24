@@ -7,11 +7,23 @@ import CameraMode from '../components/CameraMode';
 import { useAI } from '../context/AIContext';
 import { useTimer } from '../context/TimerContext';
 import { Loader2, Sparkles, X } from 'lucide-react';
+import { useSettings } from '../hooks/useSettings';
+import { useEffect } from 'react';
 
 const FocusSession = () => {
   const [activeTask, setActiveTask] = useState(null);
   const [showMoodModal, setShowMoodModal] = useState(false);
-  const { isRunning } = useTimer();
+  const { isRunning, changeMode, setCustomWork, setCustomBreak } = useTimer();
+  const { settings } = useSettings();
+
+  // Apply default settings on mount
+  useEffect(() => {
+    if (settings && settings.focus) {
+      if (settings.focus.mode) changeMode(settings.focus.mode);
+      if (settings.focus.work) setCustomWork(parseInt(settings.focus.work));
+      if (settings.focus.break) setCustomBreak(parseInt(settings.focus.break));
+    }
+  }, []); // Run only once on mount to set initial preferences
   const [modalType, setModalType] = useState('before'); // 'before' or 'after'
   const [startTimerCallback, setStartTimerCallback] = useState(null);
   const [aiDebrief, setAiDebrief] = useState(null);
@@ -38,11 +50,13 @@ const FocusSession = () => {
     // Save to localStorage for Dashboard
     const sessions = JSON.parse(localStorage.getItem('focusSessions') || '[]');
     sessions.push({
-      date: new Date().toISOString(),
-      duration: duration,
-      task: activeTask || 'Deep Work'
+      date: new Date().toISOString().split('T')[0],
+      duration: Math.round(duration / 60),
+      type: settings?.focus?.mode?.toLowerCase()?.replace(' ', '') || 'custom',
+      timestamp: Date.now()
     });
     localStorage.setItem('focusSessions', JSON.stringify(sessions));
+    window.dispatchEvent(new Event('wellnessDataUpdate'));
 
     setModalType('after');
     setShowMoodModal(true);
@@ -123,6 +137,7 @@ const FocusSession = () => {
             onStateChange={(state) => setCameraState(state)} 
             onToggle={(isActive) => setIsCameraActive(isActive)}
             isSessionActive={isRunning}
+            debounce={settings.focus.debounce}
           />
         </div>
       </div>

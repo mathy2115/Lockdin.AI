@@ -26,19 +26,21 @@ export default function Wellness() {
     loadData();
 
     const handleStorageChange = (e) => {
-      if (e.key === 'focusSessions' || e.key === 'moodLogs') {
+      if (e.type === 'wellnessDataUpdate' || e.key === 'focusSessions' || e.key === 'moodLogs') {
         loadData();
       }
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('wellnessDataUpdate', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('wellnessDataUpdate', handleStorageChange);
+    };
   }, []);
 
   const chartData = useMemo(() => {
-    if (!data.isLoaded) return [];
-
-    const last7Days = [...Array(7)].map((_, i) => {
+    const empty7Days = [...Array(7)].map((_, i) => {
       const date = subDays(new Date(), 6 - i);
       return {
         date,
@@ -51,6 +53,10 @@ export default function Wellness() {
         moodCount: 0
       };
     });
+
+    if (!data.isLoaded) return empty7Days;
+
+    const last7Days = empty7Days;
 
     // Aggregate Mood & Energy
     data.moodLogs.forEach(log => {
@@ -68,7 +74,7 @@ export default function Wellness() {
       const sessionDate = format(parseISO(session.date), 'yyyy-MM-dd');
       const dayData = last7Days.find(d => d.fullDate === sessionDate);
       if (dayData) {
-        dayData.hours += (session.duration || 0) / 3600; // convert seconds to hours
+        dayData.hours += (session.duration || 0) / 60; // convert minutes to hours
         dayData.focusCount += 1;
       }
     });
@@ -83,7 +89,18 @@ export default function Wellness() {
   }, [data]);
 
   const stats = useMemo(() => {
-    if (chartData.length === 0) return null;
+    const defaultStats = {
+      avgMood: '0.0',
+      avgEnergy: '0.0',
+      totalHours: '0.0',
+      avgFocus: '0.0',
+      burnoutLevel: 'Unknown',
+      burnoutPct: 0,
+      burnoutColor: '#8892AA',
+      hasData: false
+    };
+
+    if (!chartData || chartData.length === 0) return defaultStats;
 
     const daysWithMood = chartData.filter(d => d.moodCount > 0);
     const daysWithFocus = chartData.filter(d => d.focusCount > 0);
@@ -103,15 +120,30 @@ export default function Wellness() {
       : 0;
 
     // Burnout Risk Calculation
-    // Formula: High hours (>6/day) + Low Mood (<2.5) + Low Energy (<2.5)
-    const moodFactor = daysWithMood.length > 0 ? (5 - Number(avgMood)) : 2.5;
-    const energyFactor = daysWithMood.length > 0 ? (5 - Number(avgEnergy)) : 2.5;
-    const hoursFactor = Math.min(avgHoursPerDay / 8, 1) * 5;
-
-    const riskScore = (moodFactor + energyFactor + hoursFactor) / 3;
-    const burnoutLevel = riskScore > 3.5 ? 'High' : riskScore > 2 ? 'Moderate' : 'Low';
-    const burnoutPct = Math.round((riskScore / 5) * 100);
-    const burnoutColor = burnoutLevel === 'High' ? '#FF8FAB' : burnoutLevel === 'Moderate' ? '#FFB347' : '#4FC3F7';
+    // Formula: score = (avgMood + avgEnergy) / 2
+    let burnoutLevel = 'Low';
+    let burnoutColor = '#10B981'; // Green
+    let burnoutPct = 0;
+    
+    if (daysWithMood.length > 0) {
+      const score = (Number(avgMood) + Number(avgEnergy)) / 2;
+      
+      if (score < 2.5) {
+        burnoutLevel = 'High';
+        burnoutColor = '#F43F5E'; // Red
+      } else if (score < 4) {
+        burnoutLevel = 'Medium';
+        burnoutColor = '#F59E0B'; // Amber
+      }
+      
+      // Calculate percentage for progress bar (inverse relationship: lower score = higher risk %)
+      // Score range 1 to 5. Risk is 100% when score is 1, and 0% when score is 5.
+      burnoutPct = Math.max(0, Math.min(100, ((5 - score) / 4) * 100));
+    } else {
+      burnoutLevel = 'Unknown';
+      burnoutColor = '#8892AA'; // Grey
+      burnoutPct = 0;
+    }
 
     return {
       avgMood,
@@ -133,8 +165,7 @@ export default function Wellness() {
         </div>
         <h2 className="text-2xl font-bold text-white font-['Sora']">Your DNA is forming...</h2>
         <p className="text-fa-text-secondary max-w-sm">
-          We need a few focus sessions and mood logs to generate your wellness profile.
-          Start your first session to see real-time analytics.
+          No data yet — complete a mood check-in and start a focus session to see your wellness insights.
         </p>
         <button
           onClick={() => window.location.href = '/focus'}
@@ -146,6 +177,17 @@ export default function Wellness() {
     );
   }
 
+  const safeStats = stats ?? {
+    avgMood: '0.0',
+    avgEnergy: '0.0',
+    totalHours: '0.0',
+    avgFocus: '0.0',
+    burnoutLevel: 'Unknown',
+    burnoutPct: 0,
+    burnoutColor: '#8892AA',
+    hasData: false
+  };
+
   return (
     <div className="p-6 space-y-6 animate-in fade-in duration-500">
       <div>
@@ -156,10 +198,10 @@ export default function Wellness() {
       {/* Stat Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Avg Mood', value: `${stats.avgMood} / 5`, color: '#6C8EFF', icon: <Brain size={14} /> },
-          { label: 'Avg Energy', value: `${stats.avgEnergy} / 5`, color: '#4FC3F7', icon: <Zap size={14} /> },
-          { label: 'Total Hours', value: `${stats.totalHours}h`, color: '#B39DDB', icon: <Timer size={14} /> },
-          { label: 'Avg Session', value: `${stats.avgFocus}h`, color: '#FFB347', icon: <Layout size={14} /> },
+          { label: 'Avg Mood', value: `${safeStats.avgMood} / 5`, color: '#6C8EFF', icon: <Brain size={14} /> },
+          { label: 'Avg Energy', value: `${safeStats.avgEnergy} / 5`, color: '#4FC3F7', icon: <Zap size={14} /> },
+          { label: 'Total Hours', value: `${safeStats.totalHours}h`, color: '#B39DDB', icon: <Timer size={14} /> },
+          { label: 'Avg Session', value: `${safeStats.avgFocus}h`, color: '#FFB347', icon: <Layout size={14} /> },
         ].map((stat) => (
           <div key={stat.label} className="bg-[var(--fa-bg-card)] rounded-xl p-4 border border-[var(--fa-border)] hover:border-white/10 transition-colors">
             <div className="flex items-center gap-2 mb-1">
@@ -178,22 +220,24 @@ export default function Wellness() {
             <AlertCircle size={16} className="text-fa-text-muted" />
             <p className="text-sm font-medium text-white">Burnout Risk</p>
           </div>
-          <span className="text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-white/5" style={{ color: stats.burnoutColor }}>
-            {stats.burnoutLevel}
+          <span className="text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-white/5" style={{ color: safeStats.burnoutColor }}>
+            {safeStats.burnoutLevel}
           </span>
         </div>
         <div className="w-full bg-white/5 rounded-full h-2.5 overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(0,0,0,0.5)]"
-            style={{ width: `${stats.burnoutPct}%`, backgroundColor: stats.burnoutColor }}
+            style={{ width: `${safeStats.burnoutPct}%`, backgroundColor: safeStats.burnoutColor }}
           />
         </div>
         <p className="text-xs text-[var(--fa-text-secondary)] mt-3 leading-relaxed">
-          {stats.burnoutLevel === 'High'
-            ? '🔥 High stress detected. Your body needs rest. We recommend shorter Pomodoro sessions today.'
-            : stats.burnoutLevel === 'Moderate'
+          {safeStats.burnoutLevel === 'High'
+            ? '🔥 High stress detected. Your body needs rest. We recommend taking a break today.'
+            : safeStats.burnoutLevel === 'Medium'
               ? '⚡ Moderate intensity. You are working hard, but make sure to include movement breaks.'
-              : '💎 Optimal flow. You are managing your energy and focus perfectly. Keep this pace!'}
+              : safeStats.burnoutLevel === 'Low'
+                ? '💎 Optimal flow. You are managing your energy and focus perfectly. Keep this pace!'
+                : 'Complete a mood check-in to see your burnout risk analysis.'}
         </p>
       </div>
 
@@ -289,22 +333,22 @@ export default function Wellness() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
           <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
             <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Total Sessions</p>
-            <p className="text-sm font-medium text-white">You have completed <span className="text-purple-400 font-bold">{data.sessions.length}</span> focus sessions in total.</p>
+            <p className="text-sm font-medium text-white">You have completed <span className="text-purple-400 font-bold">{data.sessions ? data.sessions.length : 0}</span> focus sessions in total.</p>
           </div>
 
           <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
             <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Consistency</p>
-            <p className="text-sm font-medium text-white">You logged activity on <span className="text-blue-400 font-bold">{chartData.filter(d => d.hours > 0).length}</span> out of the last 7 days.</p>
+            <p className="text-sm font-medium text-white">You logged activity on <span className="text-blue-400 font-bold">{chartData ? chartData.filter(d => d.hours > 0).length : 0}</span> out of the last 7 days.</p>
           </div>
 
           <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
             <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Flow State</p>
-            <p className="text-sm font-medium text-white">Your average session duration is <span className="text-emerald-400 font-bold">{data.sessions.length > 0 ? (data.sessions.reduce((a, b) => a + b.duration, 0) / data.sessions.length / 60).toFixed(0) : 0} minutes</span>.</p>
+            <p className="text-sm font-medium text-white">Your average session duration is <span className="text-emerald-400 font-bold">{data.sessions && data.sessions.length > 0 ? (data.sessions.reduce((a, b) => a + b.duration, 0) / data.sessions.length / 60).toFixed(0) : 0} minutes</span>.</p>
           </div>
 
           <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
             <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Mood Correlation</p>
-            <p className="text-sm font-medium text-white">Your energy is <span className="text-amber-400 font-bold">{Number(stats.avgEnergy) > Number(stats.avgMood) ? 'higher' : 'lower'}</span> than your mood on average.</p>
+            <p className="text-sm font-medium text-white">Your energy is <span className="text-amber-400 font-bold">{Number(safeStats.avgEnergy) > Number(safeStats.avgMood) ? 'higher' : 'lower'}</span> than your mood on average.</p>
           </div>
         </div>
       </div>

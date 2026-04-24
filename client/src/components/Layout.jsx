@@ -1,8 +1,20 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Timer, HeartPulse, Settings, BookOpen } from 'lucide-react';
+import { LayoutDashboard, Timer, HeartPulse, Settings, BookOpen, User } from 'lucide-react';
+import { useSettings } from '../hooks/useSettings';
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const { settings } = useSettings();
+  const [avatar, setAvatar] = useState(() => localStorage.getItem('userAvatar') || null);
+
+  useEffect(() => {
+    const handleAvatarUpdate = () => {
+      setAvatar(localStorage.getItem('userAvatar'));
+    };
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    return () => window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+  }, []);
 
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -44,6 +56,21 @@ const Layout = ({ children }) => {
             );
           })}
         </nav>
+
+        {/* User Profile Info */}
+        <div className="p-4 border-t border-fa-border flex items-center gap-3 mt-auto">
+          <div className="w-10 h-10 rounded-full bg-fa-bg-page border border-fa-border flex items-center justify-center overflow-hidden flex-shrink-0">
+            {avatar ? (
+              <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <User size={20} className="text-fa-text-secondary" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate">{settings.profile.name || 'Student'}</p>
+            <p className="text-xs text-fa-text-muted truncate">{settings.profile.uni || 'Lockdin.AI'}</p>
+          </div>
+        </div>
       </aside>
 
       {/* Main Content */}

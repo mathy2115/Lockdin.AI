@@ -15,9 +15,24 @@ import Signup from './pages/Signup';
 import Landing from './pages/Landing';
 import Settings from './pages/Settings';
 
+import { useSettings } from './hooks/useSettings';
+import { useEffect } from 'react';
+
 function App() {
   // Simple check for token - in a real app, you'd use a proper AuthContext
   const isAuthenticated = !!localStorage.getItem('token');
+  const { settings } = useSettings();
+
+  useEffect(() => {
+    if (settings && settings.appearance) {
+      document.documentElement.style.setProperty('--fa-brand', settings.appearance.accent);
+      if (settings.appearance.theme === 'light') {
+        document.body.classList.add('light-theme');
+      } else {
+        document.body.classList.remove('light-theme');
+      }
+    }
+  }, [settings.appearance]);
 
   return (
     <AIProvider>

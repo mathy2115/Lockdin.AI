@@ -31,6 +31,7 @@ import {
   History,
   Layout
 } from 'lucide-react';
+import { useSettings } from '../hooks/useSettings';
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 // === STYLED COMPONENTS ===
@@ -143,6 +144,8 @@ const AcademicPlanner = () => {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const [activeView, setActiveView] = useState('kanban');
+
+  const { settings } = useSettings();
 
   const [plannerOnboarding, setPlannerOnboarding] = useState(false);
   const [plannerConfig, setPlannerConfig] = useState(() => {
@@ -789,11 +792,14 @@ const AcademicPlanner = () => {
               <div>
                 <label className="block text-xs font-medium text-fa-text-secondary mb-1">Subject Name</label>
                 <input
-                  type="text" required
+                  type="text" required list="subject-list"
                   value={manualForm.subject} onChange={e => setManualForm({ ...manualForm, subject: e.target.value })}
                   className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
                   placeholder="e.g. Mathematics"
                 />
+                <datalist id="subject-list">
+                  {settings.academic.subjects.map(s => <option key={s} value={s} />)}
+                </datalist>
               </div>
 
               <div>

@@ -4,6 +4,7 @@ import {
   LogOut, UploadCloud, Plus, X, Download, AlertTriangle, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSettings } from '../hooks/useSettings';
 
 const Switch = ({ checked, onChange }) => (
   <button 
@@ -22,15 +23,41 @@ const Settings = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('profile');
   
-  // Mock States for demonstration
-  const [profile, setProfile] = useState({ name: 'Alex Student', uni: '', course: '', year: '1' });
-  const [focus, setFocus] = useState({ mode: 'Classic', work: 25, break: 5, autoStart: false, sound: true, debounce: 10 });
-  const [notifications, setNotifications] = useState({ browser: true, session: true, daily: false, wellness: true });
-  const [academic, setAcademic] = useState({ start: '', end: '', gpa: '4.0', subjects: ['Mathematics', 'Computer Science'] });
-  const [appearance, setAppearance] = useState({ theme: 'dark', accent: '#4FC3F7' });
+  const { settings, updateSettings } = useSettings();
+  const [localSettings, setLocalSettings] = useState(settings);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
   
+  // Keep local draft synced if settings change externally
+  // useEffect(() => setLocalSettings(settings), [settings]);
+
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [newSubject, setNewSubject] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(() => localStorage.getItem('userAvatar') || null);
+
+  const handleSave = () => {
+    setIsSaving(true);
+    updateSettings(localSettings);
+    setSaveMessage('Settings saved!');
+    setTimeout(() => {
+      setIsSaving(false);
+      setSaveMessage('');
+    }, 2000);
+  };
+
+  const handleAvatarUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        localStorage.setItem('userAvatar', base64String);
+        setAvatarPreview(base64String);
+        window.dispatchEvent(new Event('avatarUpdated'));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -38,8 +65,7 @@ const Settings = () => {
   };
 
   const handleExportData = () => {
-    // Mock export logic
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ profile, focus, notifications, academic, appearance }));
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(settings));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
     downloadAnchorNode.setAttribute("download", "lockdin_ai_export.json");
@@ -102,16 +128,22 @@ const Settings = () => {
               <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Profile Settings</h3>
               
               <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-2xl bg-[#1A2236] border border-white/10 flex items-center justify-center text-gray-500 relative overflow-hidden group cursor-pointer">
-                  <User size={40} />
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-24 h-24 rounded-2xl bg-[#1A2236] border border-white/10 flex items-center justify-center text-gray-500 relative overflow-hidden group">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={40} />
+                  )}
+                  <label className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                     <UploadCloud size={20} className="text-white" />
-                  </div>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                  </label>
                 </div>
                 <div>
-                  <button className="px-4 py-2 bg-[#1A2236] hover:bg-white/10 border border-white/10 rounded-lg text-sm font-bold transition-colors">
+                  <label className="px-4 py-2 bg-[#1A2236] hover:bg-white/10 border border-white/10 rounded-lg text-sm font-bold transition-colors cursor-pointer inline-block">
                     Upload Avatar
-                  </button>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+                  </label>
                   <p className="text-xs text-gray-500 mt-2">JPEG, PNG under 2MB</p>
                 </div>
               </div>
@@ -120,28 +152,28 @@ const Settings = () => {
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full Name</label>
                   <input 
-                    type="text" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})}
+                    type="text" value={localSettings.profile.name} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, name: e.target.value}})}
                     className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">University / School</label>
                   <input 
-                    type="text" value={profile.uni} onChange={e => setProfile({...profile, uni: e.target.value})} placeholder="e.g. MIT"
+                    type="text" value={localSettings.profile.uni} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, uni: e.target.value}})} placeholder="e.g. MIT"
                     className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Course / Major</label>
                   <input 
-                    type="text" value={profile.course} onChange={e => setProfile({...profile, course: e.target.value})} placeholder="e.g. Computer Science"
+                    type="text" value={localSettings.profile.course} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, course: e.target.value}})} placeholder="e.g. Computer Science"
                     className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Year of Study</label>
                   <select 
-                    value={profile.year} onChange={e => setProfile({...profile, year: e.target.value})}
+                    value={localSettings.profile.year} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, year: e.target.value}})}
                     className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors appearance-none"
                   >
                     {[1,2,3,4,5,'Graduate'].map(y => <option key={y} value={y}>Year {y}</option>)}
@@ -150,8 +182,12 @@ const Settings = () => {
               </div>
               
               <div className="pt-4 flex justify-end">
-                <button className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all">
-                  Save Changes
+                <button 
+                  onClick={handleSave} 
+                  disabled={isSaving}
+                  className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all disabled:opacity-50"
+                >
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>
@@ -169,7 +205,7 @@ const Settings = () => {
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Default Mode</label>
                       <select 
-                        value={focus.mode} onChange={e => setFocus({...focus, mode: e.target.value})}
+                        value={localSettings.focus.mode} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, mode: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
                       >
                         <option>Classic (25/5)</option>
@@ -180,14 +216,14 @@ const Settings = () => {
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Work (min)</label>
                       <input 
-                        type="number" value={focus.work} onChange={e => setFocus({...focus, work: e.target.value})}
+                        type="number" value={localSettings.focus.work} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, work: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Break (min)</label>
                       <input 
-                        type="number" value={focus.break} onChange={e => setFocus({...focus, break: e.target.value})}
+                        type="number" value={localSettings.focus.break} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, break: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
                       />
                     </div>
@@ -199,14 +235,14 @@ const Settings = () => {
                         <p className="text-sm font-bold text-white">Auto-start Breaks</p>
                         <p className="text-xs text-gray-500 mt-1">Automatically start the break timer when work finishes.</p>
                       </div>
-                      <Switch checked={focus.autoStart} onChange={v => setFocus({...focus, autoStart: v})} />
+                      <Switch checked={localSettings.focus.autoStart} onChange={v => setLocalSettings({...localSettings, focus: {...localSettings.focus, autoStart: v}})} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-bold text-white">Session-end Sound</p>
                         <p className="text-xs text-gray-500 mt-1">Play a chime when a session completes.</p>
                       </div>
-                      <Switch checked={focus.sound} onChange={v => setFocus({...focus, sound: v})} />
+                      <Switch checked={localSettings.focus.sound} onChange={v => setLocalSettings({...localSettings, focus: {...localSettings.focus, sound: v}})} />
                     </div>
                   </div>
                 </div>
@@ -221,21 +257,21 @@ const Settings = () => {
                     <div className="flex items-center gap-6 mb-2">
                       <input 
                         type="range" min="3" max="60" step="1"
-                        value={focus.debounce}
-                        onChange={(e) => setFocus({...focus, debounce: parseInt(e.target.value)})}
+                        value={localSettings.focus.debounce}
+                        onChange={(e) => setLocalSettings({...localSettings, focus: {...localSettings.focus, debounce: parseInt(e.target.value)}})}
                         className="flex-1 accent-[#B39DDB] h-2 bg-[#1A2236] rounded-lg appearance-none cursor-pointer"
                       />
                       <div className="w-16 h-10 bg-[#1A2236] border border-white/10 rounded-lg flex items-center justify-center font-bold text-[#B39DDB]">
-                        {focus.debounce}s
+                        {localSettings.focus.debounce}s
                       </div>
                     </div>
                     <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-4">
-                      {focus.debounce <= 5 ? "Strict: Rapid pausing" : focus.debounce >= 30 ? "Lenient: Tolerates long absences" : "Balanced"} • Max 60 seconds
+                      {localSettings.focus.debounce <= 5 ? "Strict: Rapid pausing" : localSettings.focus.debounce >= 30 ? "Lenient: Tolerates long absences" : "Balanced"} • Max 60 seconds
                     </p>
                     <div className="mt-4 p-3 bg-[#4FC3F7]/10 border border-[#4FC3F7]/20 rounded-lg flex items-start gap-3">
                       <AlertTriangle size={16} className="text-[#4FC3F7] shrink-0 mt-0.5" />
                       <p className="text-xs text-[#4FC3F7]/90 leading-relaxed">
-                        If set to {focus.debounce}s, briefly stepping away won't pause your session — only absences longer than {focus.debounce} seconds will.
+                        If set to {localSettings.focus.debounce}s, briefly stepping away won't pause your session — only absences longer than {localSettings.focus.debounce} seconds will.
                       </p>
                     </div>
                   </div>
@@ -243,8 +279,8 @@ const Settings = () => {
               </div>
 
               <div className="pt-4 flex justify-end">
-                <button className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all">
-                  Save Preferences
+                <button onClick={handleSave} disabled={isSaving} className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'Save Preferences'}
                 </button>
               </div>
             </div>
@@ -261,7 +297,10 @@ const Settings = () => {
                     <p className="text-sm font-bold text-white">Browser Notifications</p>
                     <p className="text-xs text-gray-500 mt-1">Allow Lockdin.AI to send push notifications.</p>
                   </div>
-                  <Switch checked={notifications.browser} onChange={v => setNotifications({...notifications, browser: v})} />
+                  <Switch checked={localSettings.notifications.browser} onChange={v => {
+                    setLocalSettings({...localSettings, notifications: {...localSettings.notifications, browser: v}});
+                    handleSave(); // auto-save for toggles feels better, or we can add a save button. Let's add a save button at bottom for consistency.
+                  }} />
                 </div>
                 
                 <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
@@ -269,7 +308,7 @@ const Settings = () => {
                     <p className="text-sm font-bold text-white">Session Alerts</p>
                     <p className="text-xs text-gray-500 mt-1">Get notified when a work or break block ends.</p>
                   </div>
-                  <Switch checked={notifications.session} onChange={v => setNotifications({...notifications, session: v})} />
+                  <Switch checked={localSettings.notifications.session} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, session: v}})} />
                 </div>
 
                 <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
@@ -277,7 +316,7 @@ const Settings = () => {
                     <p className="text-sm font-bold text-white">Daily Reminders</p>
                     <p className="text-xs text-gray-500 mt-1">Morning nudge to plan your study day.</p>
                   </div>
-                  <Switch checked={notifications.daily} onChange={v => setNotifications({...notifications, daily: v})} />
+                  <Switch checked={localSettings.notifications.daily} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, daily: v}})} />
                 </div>
 
                 <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
@@ -285,8 +324,13 @@ const Settings = () => {
                     <p className="text-sm font-bold text-white">Wellness Check-ins</p>
                     <p className="text-xs text-gray-500 mt-1">Prompts to log your mood after long sessions.</p>
                   </div>
-                  <Switch checked={notifications.wellness} onChange={v => setNotifications({...notifications, wellness: v})} />
+                  <Switch checked={localSettings.notifications.wellness} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, wellness: v}})} />
                 </div>
+              </div>
+              <div className="pt-4 flex justify-end">
+                <button onClick={handleSave} disabled={isSaving} className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'Save Preferences'}
+                </button>
               </div>
             </div>
           )}
@@ -303,21 +347,21 @@ const Settings = () => {
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Date</label>
                       <input 
-                        type="date" value={academic.start} onChange={e => setAcademic({...academic, start: e.target.value})}
+                        type="date" value={localSettings.academic.start} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, start: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none [color-scheme:dark]"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Date</label>
                       <input 
-                        type="date" value={academic.end} onChange={e => setAcademic({...academic, end: e.target.value})}
+                        type="date" value={localSettings.academic.end} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, end: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none [color-scheme:dark]"
                       />
                     </div>
                     <div className="space-y-2 pt-2">
                       <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">GPA Scale</label>
                       <select 
-                        value={academic.gpa} onChange={e => setAcademic({...academic, gpa: e.target.value})}
+                        value={localSettings.academic.gpa} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, gpa: e.target.value}})}
                         className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none appearance-none"
                       >
                         <option value="4.0">4.0 Scale</option>
@@ -331,18 +375,18 @@ const Settings = () => {
                   <h4 className="text-sm font-bold text-white">Active Subjects</h4>
                   <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex flex-col h-full">
                     <div className="space-y-2 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                      {academic.subjects.map((sub, idx) => (
+                      {localSettings.academic.subjects.map((sub, idx) => (
                         <div key={idx} className="flex items-center justify-between bg-[#1A2236] p-3 rounded-lg border border-white/5">
                           <span className="text-sm">{sub}</span>
                           <button 
-                            onClick={() => setAcademic({...academic, subjects: academic.subjects.filter((_, i) => i !== idx)})}
+                            onClick={() => setLocalSettings({...localSettings, academic: {...localSettings.academic, subjects: localSettings.academic.subjects.filter((_, i) => i !== idx)}})}
                             className="text-gray-500 hover:text-red-400 transition-colors"
                           >
                             <X size={16} />
                           </button>
                         </div>
                       ))}
-                      {academic.subjects.length === 0 && <p className="text-xs text-gray-500 italic">No subjects added.</p>}
+                      {localSettings.academic.subjects.length === 0 && <p className="text-xs text-gray-500 italic">No subjects added.</p>}
                     </div>
                     
                     <div className="mt-auto flex gap-2">
@@ -352,7 +396,7 @@ const Settings = () => {
                         className="flex-1 bg-[#1A2236] border border-white/5 rounded-lg px-3 py-2 text-sm outline-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newSubject.trim()) {
-                            setAcademic({...academic, subjects: [...academic.subjects, newSubject.trim()]});
+                            setLocalSettings({...localSettings, academic: {...localSettings.academic, subjects: [...localSettings.academic.subjects, newSubject.trim()]}});
                             setNewSubject('');
                           }
                         }}
@@ -360,7 +404,7 @@ const Settings = () => {
                       <button 
                         onClick={() => {
                           if (newSubject.trim()) {
-                            setAcademic({...academic, subjects: [...academic.subjects, newSubject.trim()]});
+                            setLocalSettings({...localSettings, academic: {...localSettings.academic, subjects: [...localSettings.academic.subjects, newSubject.trim()]}});
                             setNewSubject('');
                           }
                         }}
@@ -371,6 +415,11 @@ const Settings = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div className="pt-4 flex justify-end">
+                <button onClick={handleSave} disabled={isSaving} className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'Save Preferences'}
+                </button>
               </div>
             </div>
           )}
@@ -385,24 +434,24 @@ const Settings = () => {
                   <h4 className="text-sm font-bold text-white mb-4">Theme Mode</h4>
                   <div className="flex gap-4">
                     <button 
-                      onClick={() => setAppearance({...appearance, theme: 'dark'})}
+                      onClick={() => setLocalSettings({...localSettings, appearance: {...localSettings.appearance, theme: 'dark'}})}
                       className={`flex-1 py-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
-                        appearance.theme === 'dark' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30 hover:bg-[#1A2236]'
+                        localSettings.appearance.theme === 'dark' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30 hover:bg-[#1A2236]'
                       }`}
                     >
                       <div className="w-12 h-12 rounded-full bg-[#0D1117] border border-white/10 flex items-center justify-center">
-                        {appearance.theme === 'dark' && <Check size={18} className="text-[#4FC3F7]" />}
+                        {localSettings.appearance.theme === 'dark' && <Check size={18} className="text-[#4FC3F7]" />}
                       </div>
                       <span className="font-bold text-sm">Deep Dark</span>
                     </button>
                     <button 
-                      onClick={() => setAppearance({...appearance, theme: 'light'})}
+                      onClick={() => setLocalSettings({...localSettings, appearance: {...localSettings.appearance, theme: 'light'}})}
                       className={`flex-1 py-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 opacity-50 cursor-not-allowed ${
-                        appearance.theme === 'light' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30'
+                        localSettings.appearance.theme === 'light' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30'
                       }`}
                     >
                       <div className="w-12 h-12 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-                        {appearance.theme === 'light' && <Check size={18} className="text-[#4FC3F7]" />}
+                        {localSettings.appearance.theme === 'light' && <Check size={18} className="text-[#4FC3F7]" />}
                       </div>
                       <span className="font-bold text-sm">Light Mode <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full ml-1 font-normal">Coming Soon</span></span>
                     </button>
@@ -420,18 +469,23 @@ const Settings = () => {
                     ].map(swatch => (
                       <button
                         key={swatch.color}
-                        onClick={() => setAppearance({...appearance, accent: swatch.color})}
+                        onClick={() => setLocalSettings({...localSettings, appearance: {...localSettings.appearance, accent: swatch.color}})}
                         className={`w-14 h-14 rounded-full transition-all flex items-center justify-center ${
-                          appearance.accent === swatch.color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0D1117] scale-110' : 'hover:scale-105'
+                          localSettings.appearance.accent === swatch.color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#0D1117] scale-110' : 'hover:scale-105'
                         }`}
                         style={{ backgroundColor: swatch.color }}
                         title={swatch.name}
                       >
-                        {appearance.accent === swatch.color && <Check size={20} className="text-[#0D1117]" />}
+                        {localSettings.appearance.accent === swatch.color && <Check size={20} className="text-[#0D1117]" />}
                       </button>
                     ))}
                   </div>
                 </div>
+              </div>
+              <div className="pt-4 flex justify-end">
+                <button onClick={handleSave} disabled={isSaving} className="px-6 py-3 bg-[#4FC3F7] text-[#0D1117] font-bold rounded-xl shadow-lg shadow-[#4FC3F7]/20 hover:bg-[#4FC3F7]/90 transition-all disabled:opacity-50">
+                  {isSaving ? 'Saving...' : 'Save Preferences'}
+                </button>
               </div>
             </div>
           )}
@@ -489,6 +543,14 @@ const Settings = () => {
 
         </div>
       </div>
+      
+      {/* GLOBAL SAVE FEEDBACK TOAST */}
+      {saveMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-green-500 border border-green-400 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <Check size={18} />
+          <span className="font-semibold text-sm">{saveMessage}</span>
+        </div>
+      )}
     </div>
   );
 };

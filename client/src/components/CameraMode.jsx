@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, CameraOff, Loader2 } from 'lucide-react';
 
-const TM_MODEL_URL = 'https://teachablemachine.withgoogle.com/models/aptIgRtjs/';
+const TM_MODEL_URL = '/tm-model/';
 const FACE_API_WEIGHTS = '/weights'
 
 const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
@@ -84,23 +84,20 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
   // 4. Resolve State Logic
   const resolveState = () => {
     const emotion = latestEmotionRef.current.toLowerCase();
-    const posture = latestPostureRef.current; // Keep exact casing from TM model if needed, but we'll do case-insensitive
-    const postureLower = posture.toLowerCase();
+    const posture = latestPostureRef.current; 
     const noFace = noFaceDetectedRef.current;
 
     let nextState = 'Focused';
 
-    if (postureLower === 'away' || noFace) {
+    if (posture === 'Away' || noFace) {
       nextState = 'Away';
-    } else if (postureLower === 'head in hands') {
-      nextState = 'Stressed';
-    } else if (postureLower === 'slouching' && (emotion === 'sad' || emotion === 'angry')) {
+    } else if (posture === 'Head in Hands') {
       nextState = 'Stressed';
     } else if (emotion === 'sad' || emotion === 'fearful') {
       nextState = 'Fatigued';
     } else if (emotion === 'surprised' || emotion === 'disgusted') {
       nextState = 'Distracted';
-    } else if (postureLower === 'good posture' && (emotion === 'neutral' || emotion === 'happy')) {
+    } else if (posture === 'Good Posture' && (emotion === 'neutral' || emotion === 'happy')) {
       nextState = 'Focused';
     } else {
       nextState = 'Focused';
@@ -152,8 +149,13 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
       if (prediction && prediction.length > 0) {
         const highestPosture = prediction.reduce((prev, current) => (prev.probability > current.probability) ? prev : current);
 
-        latestPostureRef.current = highestPosture.className;
-        setPostureData({ label: highestPosture.className, confidence: Math.round(highestPosture.probability * 100) });
+        let mappedLabel = highestPosture.className;
+        if (mappedLabel === "Class 1 - Good Posture") mappedLabel = 'Good Posture';
+        else if (mappedLabel === "Class 2 - Away from Screen") mappedLabel = 'Away';
+        else if (mappedLabel === "Class 3 - Head in Hands") mappedLabel = 'Head in Hands';
+
+        latestPostureRef.current = mappedLabel;
+        setPostureData({ label: mappedLabel, confidence: Math.round(highestPosture.probability * 100) });
       }
       resolveState();
     }, 2000);

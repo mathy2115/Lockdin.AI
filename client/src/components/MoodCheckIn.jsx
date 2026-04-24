@@ -81,8 +81,15 @@ const MoodCheckIn = ({ type, onSubmit, onSkip }) => {
 
     // Save to localStorage for Dashboard
     const logs = JSON.parse(localStorage.getItem('moodLogs') || '[]');
-    logs.push({ ...moodData, date: new Date().toISOString() });
+    logs.push({
+      date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+      mood: mood,
+      energy: energy,
+      stress: stress,
+      timestamp: Date.now()
+    });
     localStorage.setItem('moodLogs', JSON.stringify(logs));
+    window.dispatchEvent(new Event('wellnessDataUpdate'));
 
     onSubmit(moodData);
   };
