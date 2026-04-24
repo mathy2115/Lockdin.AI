@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Onboarding from './pages/Onboarding';
 import FocusSession from './pages/FocusSession';
 import AcademicPlanner from './pages/AcademicPlanner';
+import Wellness from './pages/Wellness';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -60,6 +61,14 @@ function App() {
           element={
             <ProtectedLayoutRoute>
               <AcademicPlanner />
+            </ProtectedLayoutRoute>
+          } 
+        />
+        <Route 
+          path="/wellness" 
+          element={
+            <ProtectedLayoutRoute>
+              <Wellness />
             </ProtectedLayoutRoute>
           } 
         />
