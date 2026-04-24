@@ -3,6 +3,8 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import TaskManager from '../components/TaskManager';
 import MoodCheckIn from '../components/MoodCheckIn';
 import AdaptiveNudgeSystem from '../components/AdaptiveNudgeSystem';
+import WebcamAI from '../components/WebcamAI';
+import { useAI } from '../context/AIContext';
 import { Loader2, Sparkles, X } from 'lucide-react';
 
 const FocusSession = () => {
@@ -13,11 +15,16 @@ const FocusSession = () => {
   const [aiDebrief, setAiDebrief] = useState(null);
   const [isDebriefLoading, setIsDebriefLoading] = useState(false);
   
-  // Mock AI detected state for testing the nudge system
+  const { isCameraActive, resolvedState, getSessionBreakdown, resetSessionBreakdown } = useAI();
+
+  // Mock AI detected state for testing the nudge system when camera is off
   const [systemState, setSystemState] = useState('focused');
+
+  const activeState = isCameraActive ? resolvedState : systemState;
 
   const handleStartTimer = (startCallback) => {
     setModalType('before');
+    if (isCameraActive) resetSessionBreakdown();
     setStartTimerCallback(() => startCallback);
     setShowMoodModal(true);
   };
@@ -34,6 +41,9 @@ const FocusSession = () => {
       setStartTimerCallback(null);
     } else if (modalType === 'after') {
       setIsDebriefLoading(true);
+      
+      const breakdown = getSessionBreakdown();
+      
       try {
         const response = await fetch('http://localhost:5000/api/ai/coach', {
           method: 'POST',
@@ -44,7 +54,12 @@ const FocusSession = () => {
             focusScore: 8,
             moodBefore: 5,
             moodAfter: moodData?.mood || 7,
-            states: { focused: 80, distracted: 10, stressed: 10 },
+            states: { 
+              focused: breakdown.focused_pct || 80, 
+              distracted: breakdown.distracted_pct || 10, 
+              stressed: breakdown.stressed_pct || 10,
+              fatigued: breakdown.fatigued_pct || 0
+            },
             nudges: 2,
             completed: true,
             notes: moodData?.note || ''
@@ -76,21 +91,30 @@ const FocusSession = () => {
           <p className="text-fa-text-secondary mt-1">Manual mode — dive into deep work.</p>
         </div>
         
-        {/* Mock State Controller for testing Adaptive Nudge System */}
-        <div className="flex items-center gap-3 bg-fa-bg-page border border-fa-border p-2 rounded-lg">
-          <span className="text-xs text-fa-text-secondary font-medium uppercase tracking-wider">Test State:</span>
-          <select 
-            value={systemState}
-            onChange={(e) => setSystemState(e.target.value)}
-            className="bg-fa-bg-hover text-sm border-none rounded px-2 py-1 text-fa-text-primary focus:outline-none focus:ring-1 focus:ring-fa-brand"
-          >
-            <option value="focused">Focused</option>
-            <option value="distracted">Distracted</option>
-            <option value="stressed">Stressed</option>
-            <option value="fatigued">Fatigued</option>
-            <option value="away">Away</option>
-          </select>
-        </div>
+        {/* State Controller */}
+        {!isCameraActive ? (
+          <div className="flex items-center gap-3 bg-fa-bg-page border border-fa-border p-2 rounded-lg">
+            <span className="text-xs text-fa-text-secondary font-medium uppercase tracking-wider">Test State:</span>
+            <select 
+              value={systemState}
+              onChange={(e) => setSystemState(e.target.value)}
+              className="bg-fa-bg-hover text-sm border-none rounded px-2 py-1 text-fa-text-primary focus:outline-none focus:ring-1 focus:ring-fa-brand"
+            >
+              <option value="focused">Focused</option>
+              <option value="distracted">Distracted</option>
+              <option value="stressed">Stressed</option>
+              <option value="fatigued">Fatigued</option>
+              <option value="away">Away</option>
+            </select>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-fa-brand/10 border border-fa-brand/30 p-2 rounded-lg">
+            <span className="text-xs text-fa-brand font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-fa-brand animate-pulse"></span>
+              AI Camera Mode Active
+            </span>
+          </div>
+        )}
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0 overflow-y-auto custom-scrollbar">
@@ -117,9 +141,12 @@ const FocusSession = () => {
 
       {/* Adaptive Nudge System */}
       <AdaptiveNudgeSystem 
-        currentState={systemState} 
+        currentState={activeState} 
         currentTask={activeTask?.title || 'your task'} 
       />
+
+      {/* Webcam AI PiP Overlay */}
+      <WebcamAI />
 
       {/* AI Post-Session Debrief Loading */}
       {isDebriefLoading && (

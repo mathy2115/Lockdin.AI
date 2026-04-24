@@ -8,6 +8,7 @@ import Onboarding from './pages/Onboarding';
 import FocusSession from './pages/FocusSession';
 import AcademicPlanner from './pages/AcademicPlanner';
 import Wellness from './pages/Wellness';
+import { AIProvider } from './context/AIContext';
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem('token');
@@ -27,8 +28,9 @@ const ProtectedLayoutRoute = ({ children }) => {
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
+    <AIProvider>
+      <BrowserRouter>
+        <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
@@ -74,6 +76,7 @@ function App() {
         />
       </Routes>
     </BrowserRouter>
+    </AIProvider>
   );
 }
 
