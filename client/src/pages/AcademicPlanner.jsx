@@ -31,7 +31,7 @@ import {
   History,
   Layout
 } from 'lucide-react';
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
 // === STYLED COMPONENTS ===
 
@@ -241,7 +241,7 @@ const AcademicPlanner = () => {
     }
   };
 
-  // --- Gemini API Call for Study Plan ---
+    // --- Groq API Call for Study Plan ---
   const handleGenerateStudyPlan = async () => {
     if (!extractedText.trim()) return;
 
@@ -254,18 +254,26 @@ const AcademicPlanner = () => {
 
       const prompt = `You are an academic study planner. Given the following syllabus, generate a day-by-day study schedule.\n\nSyllabus: ${extractedText}\nStudy hours per day: ${plannerConfig.studyHours}\nExam dates: ${examDatesStr || 'None'}\nPrevious marks: ${plannerConfig.marks || 'Not provided'}\n\nRules:\n- Prioritize weak topics from previous marks\n- Leave 2 days before each exam as revision days\n- Each day has 1-3 tasks fitting within daily hour limit\n- Return ONLY a valid JSON array. Each object: { id, title, subject, topic, subTopic, date (YYYY-MM-DD), type ('study'|'revision'), column: 'todo' }\n- No explanation, no markdown, just raw JSON array`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`, {
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`
+        },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }]
+          model: 'llama-3.1-8b-instant',
+          max_tokens: 4096,
+          messages: [{
+            role: 'user',
+            content: prompt
+          }]
         })
       });
 
       const data = await response.json();
 
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error('Empty response from Gemini');
+      const text = data.choices[0].message.content;
+      if (!text) throw new Error('Empty response from Groq');
 
       const cleaned = text.replace(/```json|```/g, '').trim();
 
