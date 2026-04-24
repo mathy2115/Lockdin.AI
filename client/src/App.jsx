@@ -13,6 +13,7 @@ import Onboarding from './pages/Onboarding';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Landing from './pages/Landing';
+import Settings from './pages/Settings';
 
 function App() {
   // Simple check for token - in a real app, you'd use a proper AuthContext
@@ -34,7 +35,7 @@ function App() {
             <Route path="/focus" element={isAuthenticated ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
             <Route path="/wellness" element={isAuthenticated ? <Layout><Wellness /></Layout> : <Navigate to="/login" />} />
             <Route path="/onboarding" element={isAuthenticated ? <Onboarding /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={isAuthenticated ? <Layout><div className="text-white p-8">Settings page coming soon...</div></Layout> : <Navigate to="/login" />} />
+            <Route path="/settings" element={isAuthenticated ? <Layout><Settings /></Layout> : <Navigate to="/login" />} />
             
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" />} />
