@@ -1,411 +1,401 @@
-import React, { useState, useRef } from 'react';
-import { BookOpen, Calendar, Clock, AlertCircle, CheckCircle2, Loader2, UploadCloud, FileText, X, Plus, Minus } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
+import { UploadCloud, Loader2, Plus, Calendar, Clock, Circle, CheckCircle2, AlertCircle, X } from 'lucide-react';
+
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+// === DND COMPONENTS ===
+
+const DraggableTask = ({ task }) => {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id.toString(),
+    data: task,
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    opacity: isDragging ? 0.4 : 1,
+  };
+
+  const getPriorityColor = (p) => {
+    if (p === 'High') return 'bg-red-500';
+    if (p === 'Medium') return 'bg-amber-500';
+    return 'bg-green-500';
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className="bg-[#1A2236] border border-white/5 rounded-xl p-4 mb-3 cursor-grab active:cursor-grabbing hover:border-fa-brand/50 transition-colors shadow-sm"
+    >
+      <div className="flex justify-between items-start mb-2">
+        <h4 className="text-sm font-semibold text-white leading-tight pr-2">{task.title}</h4>
+        <div className={`w-2 h-2 rounded-full mt-1 flex-shrink-0 ${getPriorityColor(task.priority)}`}></div>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[10px] font-semibold text-white bg-white/10 px-2 py-0.5 rounded">
+          {task.subject}
+        </span>
+        {task.estimatedHours && (
+          <span className="text-[10px] text-fa-text-secondary flex items-center gap-1">
+            <Clock size={10} /> {task.estimatedHours}h
+          </span>
+        )}
+      </div>
+
+      {task.deadline && (
+        <div className="flex items-center gap-1.5 text-xs text-fa-text-muted">
+          <Calendar size={12} />
+          <span>{new Date(task.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DroppableColumn = ({ id, title, tasks }) => {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div className="flex flex-col h-full bg-[#0d1117] rounded-xl border border-white/5 overflow-hidden">
+      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+        <h3 className="font-semibold text-white">{title}</h3>
+        <span className="text-xs font-bold text-fa-text-muted bg-white/5 px-2 py-1 rounded-full">
+          {tasks.length}
+        </span>
+      </div>
+      
+      <div 
+        ref={setNodeRef} 
+        className={`flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors ${
+          isOver ? 'bg-fa-brand/5' : ''
+        }`}
+      >
+        {tasks.length === 0 ? (
+          <div className="h-32 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-sm text-fa-text-muted">
+            Drop tasks here
+          </div>
+        ) : (
+          tasks.map(task => <DraggableTask key={task.id} task={task} />)
+        )}
+      </div>
+    </div>
+  );
+};
+
+// === MAIN COMPONENT ===
 
 const AcademicPlanner = () => {
-  const [planTitle, setPlanTitle] = useState('');
-  const [deadline, setDeadline] = useState('');
-  const [uploadedFile, setUploadedFile] = useState(null);
-  const [syllabusText, setSyllabusText] = useState('');
-  const [studyHoursPerDay, setStudyHoursPerDay] = useState(2);
-  const [sessionLengthType, setSessionLengthType] = useState('25'); // '25', '50', 'Custom'
-  const [sessionLengthMins, setSessionLengthMins] = useState(25);
-  
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [plan, setPlan] = useState(null);
-
+  const [isUploading, setIsUploading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
   const fileInputRef = useRef(null);
+  
+  // Modal Form State
+  const [form, setForm] = useState({ title: '', subject: '', deadline: '', priority: 'Medium', estimatedHours: '' });
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadedFile(file);
-      // Mocking text extraction for demo purposes
-      if (!syllabusText) {
-        setSyllabusText(`[Content from ${file.name}]`);
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch('/api/tasks', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTasks(data);
       }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const removeFile = () => {
-    setUploadedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
   };
 
-  const handleGeneratePlan = async () => {
-    if (!syllabusText.trim() && !uploadedFile) {
-      setError('Please upload a file or paste your syllabus text.');
+  // --- File Upload & PDF parsing ---
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      alert("Please upload a PDF file.");
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    
-    // Combine title and deadline into the text so the AI knows
-    const contextPrefix = `Plan Title: ${planTitle || 'Untitled'}\nTarget Deadline: ${deadline || 'None specified'}\n\n`;
-    const finalSyllabusText = contextPrefix + syllabusText;
-
-    const actualSessionLength = sessionLengthType === 'Custom' ? sessionLengthMins : parseInt(sessionLengthType, 10);
-
+    setIsUploading(true);
     try {
-      const response = await fetch('http://localhost:5000/api/ai/study-plan', {
+      const extractTextFromPDF = async (file) => {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          fullText += content.items.map(item => item.str).join(' ') + '\n';
+        }
+        return fullText;
+      };
+
+      const fullText = await extractTextFromPDF(file);
+
+      // 4. Send to Gemini backend
+      const res = await fetch('/api/scan-syllabus', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          syllabusText: finalSyllabusText,
-          currentDate: new Date().toISOString().split('T')[0],
-          studyHoursPerDay,
-          sessionLengthMins: actualSessionLength
-        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ text: fullText })
       });
 
-      if (!response.ok) {
-        let errorMsg = 'Failed to generate study plan. Please try again.';
-        try {
-          const errData = await response.json();
-          if (errData.error) errorMsg = errData.error;
-        } catch (e) {
-          // Fallback if the response isn't JSON
-        }
-        throw new Error(errorMsg);
-      }
+      if (!res.ok) throw new Error("Failed to extract tasks");
+      
+      const extractedTasks = await res.json();
+      
+      // 5. Bulk save to DB
+      const saveRes = await fetch('/api/tasks/bulk', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ tasks: extractedTasks })
+      });
 
-      const data = await response.json();
-      setPlan(data);
+      if (saveRes.ok) {
+        showToast(`✨ ${extractedTasks.length} tasks added from your syllabus!`);
+        fetchTasks();
+      }
     } catch (err) {
-      console.error('Frontend Error - Failed to generate plan:', err);
-      setError(err.message);
+      console.error(err);
+      alert("Error scanning syllabus: " + err.message);
     } finally {
-      setLoading(false);
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  // --- DND Handlers ---
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const taskId = parseInt(active.id);
+    const newStatus = over.id; // 'todo', 'inprogress', 'done'
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+
+    // Optimistic UI update
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+
+    // Persist to DB
+    try {
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (err) {
+      console.error("Failed to update status", err);
+      fetchTasks(); // rollback on error
+    }
+  };
+
+  // --- Manual Task Form ---
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(form)
+      });
+      if (res.ok) {
+        setIsModalOpen(false);
+        setForm({ title: '', subject: '', deadline: '', priority: 'Medium', estimatedHours: '' });
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Sort tasks by deadline (nearest first)
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (!a.deadline) return 1;
+    if (!b.deadline) return -1;
+    return new Date(a.deadline) - new Date(b.deadline);
+  });
+
+  const columns = {
+    todo: sortedTasks.filter(t => t.status === 'todo'),
+    inprogress: sortedTasks.filter(t => t.status === 'inprogress'),
+    done: sortedTasks.filter(t => t.status === 'done')
   };
 
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      <header className="flex items-center justify-between pb-6 mb-6 border-b border-fa-border flex-shrink-0">
+      {/* HEADER */}
+      <header className="flex items-center justify-between pb-6 border-b border-fa-border mb-6">
         <div>
-          <h2 className="text-2xl font-['Sora'] font-bold text-fa-text-primary">AI Academic Planner</h2>
-          <p className="text-fa-text-secondary mt-1">Transform your syllabus into a backwards-planned study schedule.</p>
+          <h2 className="text-2xl font-['Sora'] font-bold text-white">Academic Planner</h2>
+          <p className="text-fa-text-secondary mt-1">Syllabus scanner & Kanban board.</p>
         </div>
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 bg-fa-brand hover:bg-fa-brand/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-fa-brand/20"
+        >
+          <Plus size={18} /> Add Task Manually
+        </button>
       </header>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col lg:flex-row gap-6 pb-8">
+      {/* SECTION 1: SYLLABUS SCANNER */}
+      <div 
+        className="mb-8 relative bg-[#161b22] border-2 border-dashed border-[#6366f1]/40 rounded-xl p-8 text-center transition-all hover:border-[#6366f1]/70 hover:bg-[#6366f1]/5 group cursor-pointer overflow-hidden"
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+      >
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept=".pdf" 
+          onChange={handleFileUpload}
+        />
         
-        {/* Left Column: Input Form */}
-        <div className="w-full lg:w-[40%] flex flex-col gap-6">
-          <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-6 shadow-lg relative overflow-hidden group">
-            {/* Subtle gradient background for premium feel */}
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fa-brand to-purple-600 opacity-80"></div>
-            
-            <div className="space-y-6">
-              
-              {/* 1. Plan Title */}
-              <div>
-                <label className="block text-sm font-semibold text-fa-text-primary mb-1.5">Plan Title</label>
-                <input 
-                  type="text" 
-                  value={planTitle}
-                  onChange={(e) => setPlanTitle(e.target.value)}
-                  placeholder="e.g. Physics Finals, Math Midterm..."
-                  className="w-full bg-fa-bg-page border border-fa-border rounded-xl p-3 text-sm text-fa-text-primary placeholder:text-fa-text-muted focus:outline-none focus:border-fa-brand focus:ring-1 focus:ring-fa-brand transition-all shadow-inner"
-                />
-              </div>
+        {isUploading ? (
+          <div className="flex flex-col items-center animate-in fade-in">
+            <Loader2 size={40} className="text-[#6366f1] animate-spin mb-4" />
+            <h3 className="text-lg font-bold text-white mb-2">Reading Syllabus...</h3>
+            <p className="text-sm text-fa-text-secondary">Claude AI is extracting topics and deadlines.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center">
+            <div className="w-16 h-16 rounded-full bg-[#6366f1]/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <UploadCloud size={32} className="text-[#6366f1]" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Upload your syllabus — let AI build your study plan</h3>
+            <p className="text-sm text-fa-text-secondary">Drag and drop a PDF file, or click to browse.</p>
+          </div>
+        )}
+      </div>
 
-              {/* 2. Deadline */}
-              <div>
-                <label className="block text-sm font-semibold text-fa-text-primary mb-1.5">When do you need to be ready by?</label>
-                <input 
-                  type="date" 
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full bg-fa-bg-page border border-fa-border rounded-xl p-3 text-sm text-fa-text-primary focus:outline-none focus:border-fa-brand focus:ring-1 focus:ring-fa-brand transition-all shadow-inner"
-                  style={{ colorScheme: 'dark' }}
-                />
-              </div>
+      {/* SECTION 2: KANBAN BOARD */}
+      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0 pb-6">
+          <DroppableColumn id="todo" title="To Do" tasks={columns.todo} />
+          <DroppableColumn id="inprogress" title="In Progress" tasks={columns.inprogress} />
+          <DroppableColumn id="done" title="Done" tasks={columns.done} />
+        </div>
+      </DndContext>
 
-              {/* 3. Upload Study Materials */}
-              <div>
-                <label className="block text-sm font-semibold text-fa-text-primary mb-1">Upload your syllabus, notes, or any study material</label>
-                <p className="text-xs text-fa-text-secondary mb-3">We'll read it and build your plan around it.</p>
-                
-                <div className="relative group cursor-pointer">
-                  <input 
-                    type="file" 
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept=".pdf,.docx,.txt"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    title="Drag and drop or click to upload"
-                  />
-                  <div className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center transition-all ${uploadedFile ? 'border-fa-brand bg-fa-brand/5' : 'border-fa-border bg-fa-bg-page group-hover:border-fa-brand/50 group-hover:bg-fa-bg-hover'}`}>
-                    {uploadedFile ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <FileText size={32} className="text-fa-brand" />
-                        <span className="text-sm font-medium text-fa-text-primary truncate max-w-[200px]">{uploadedFile.name}</span>
-                        <span className="text-xs text-fa-brand mt-1 flex items-center gap-1 z-20 cursor-pointer hover:underline" onClick={(e) => { e.preventDefault(); removeFile(); }}>
-                          <X size={12} /> Remove
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center gap-2 text-fa-text-muted group-hover:text-fa-text-secondary transition-colors">
-                        <UploadCloud size={32} className="mb-1" />
-                        <span className="text-sm font-medium">Drag & drop your file here</span>
-                        <span className="text-xs">Accepts PDF, DOCX, TXT</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+      {/* SUCCESS TOAST */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-[#1A1E2E] border border-[#6366f1]/30 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
+          <CheckCircle2 size={18} className="text-[#6366f1]" />
+          <span className="font-semibold text-sm">{toast}</span>
+        </div>
+      )}
 
-                {!uploadedFile && (
-                  <div className="mt-4 animate-fade-in">
-                    <label className="block text-xs font-medium text-fa-text-secondary mb-2">Or paste your content here...</label>
-                    <textarea 
-                      value={syllabusText}
-                      onChange={(e) => setSyllabusText(e.target.value)}
-                      placeholder="Paste topics, deadlines, weightage..."
-                      className="w-full h-32 bg-fa-bg-page border border-fa-border rounded-xl p-3 text-sm text-fa-text-primary placeholder:text-fa-text-muted focus:outline-none focus:border-fa-brand focus:ring-1 focus:ring-fa-brand resize-none custom-scrollbar shadow-inner transition-all"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* 4 & 5. Hours and Session Length */}
-              <div className="grid grid-cols-2 gap-5">
-                {/* Daily Study Hours */}
-                <div>
-                  <label className="block text-sm font-semibold text-fa-text-primary mb-2">Daily Study Hours</label>
-                  <div className="flex items-center bg-fa-bg-page border border-fa-border rounded-xl overflow-hidden shadow-inner focus-within:border-fa-brand focus-within:ring-1 focus-within:ring-fa-brand transition-all">
-                    <button 
-                      type="button"
-                      onClick={() => setStudyHoursPerDay(Math.max(1, studyHoursPerDay - 1))}
-                      className="p-3 text-fa-text-secondary hover:text-white hover:bg-fa-bg-hover transition-colors"
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <input 
-                      type="number" 
-                      value={studyHoursPerDay}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val)) setStudyHoursPerDay(Math.min(12, Math.max(1, val)));
-                      }}
-                      className="w-full bg-transparent text-center text-sm font-medium text-fa-text-primary focus:outline-none appearance-none m-0"
-                      style={{ MozAppearance: 'textfield' }}
-                    />
-                    <button 
-                      type="button"
-                      onClick={() => setStudyHoursPerDay(Math.min(12, studyHoursPerDay + 1))}
-                      className="p-3 text-fa-text-secondary hover:text-white hover:bg-fa-bg-hover transition-colors"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Session Length */}
-                <div>
-                  <label className="block text-sm font-semibold text-fa-text-primary mb-2">Session Length</label>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex gap-1.5 bg-fa-bg-page border border-fa-border p-1 rounded-xl shadow-inner">
-                      {['25', '50', 'Custom'].map(opt => (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => setSessionLengthType(opt)}
-                          className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${sessionLengthType === opt ? 'bg-fa-bg-hover text-white shadow-sm' : 'text-fa-text-secondary hover:text-white'}`}
-                        >
-                          {opt === 'Custom' ? opt : `${opt}m`}
-                        </button>
-                      ))}
-                    </div>
-                    {sessionLengthType === 'Custom' && (
-                      <input 
-                        type="number" 
-                        value={sessionLengthMins}
-                        onChange={(e) => setSessionLengthMins(Number(e.target.value))}
-                        min="15"
-                        max="120"
-                        placeholder="Mins"
-                        className="w-full bg-fa-bg-page border border-fa-border rounded-xl p-2 text-sm text-center text-fa-text-primary focus:outline-none focus:border-fa-brand focus:ring-1 focus:ring-fa-brand transition-all shadow-inner animate-fade-in"
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Error Alert */}
-              {error && (
-                <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl text-sm flex items-start gap-3 animate-fade-in shadow-sm">
-                  <AlertCircle size={18} className="mt-0.5 flex-shrink-0" />
-                  <span className="leading-relaxed">{error}</span>
-                </div>
-              )}
-
-              {/* Submit Button */}
-              <button 
-                onClick={handleGeneratePlan}
-                disabled={loading}
-                className="w-full bg-fa-brand hover:bg-fa-brand/90 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-fa-brand/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-70 disabled:shadow-none active:scale-[0.99]"
-              >
-                {loading ? <Loader2 size={20} className="animate-spin" /> : <Calendar size={20} />}
-                {loading ? 'Crafting Your Schedule...' : 'Generate Study Plan'}
+      {/* MANUAL TASK MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#161b22] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-bold text-white">Add Task</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-fa-text-muted hover:text-white">
+                <X size={20} />
               </button>
             </div>
+            
+            <form onSubmit={handleAddTask} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-fa-text-secondary mb-1">Task Title</label>
+                <input 
+                  type="text" required
+                  value={form.title} onChange={e => setForm({...form, title: e.target.value})}
+                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+                  placeholder="Read Chapter 4"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-fa-text-secondary mb-1">Subject</label>
+                  <input 
+                    type="text" required
+                    value={form.subject} onChange={e => setForm({...form, subject: e.target.value})}
+                    className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+                    placeholder="e.g. Physics"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fa-text-secondary mb-1">Deadline</label>
+                  <input 
+                    type="date" 
+                    value={form.deadline} onChange={e => setForm({...form, deadline: e.target.value})}
+                    className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#6366f1] focus:outline-none style-color-scheme-dark"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-fa-text-secondary mb-1">Priority</label>
+                  <select 
+                    value={form.priority} onChange={e => setForm({...form, priority: e.target.value})}
+                    className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+                  >
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fa-text-secondary mb-1">Est. Hours</label>
+                  <input 
+                    type="number" min="1" max="100"
+                    value={form.estimatedHours} onChange={e => setForm({...form, estimatedHours: e.target.value})}
+                    className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#6366f1] focus:outline-none"
+                    placeholder="e.g. 2"
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-[#6366f1] hover:bg-[#6366f1]/90 text-white rounded-xl font-bold mt-2 transition-colors">
+                Save Task
+              </button>
+            </form>
           </div>
         </div>
-
-        {/* Right Column: Results */}
-        <div className="w-full lg:w-[60%] flex flex-col gap-6">
-          {!plan && !loading ? (
-            <div className="flex-1 bg-fa-bg-shell border border-fa-border border-dashed rounded-2xl flex flex-col items-center justify-center text-center p-12 min-h-[500px]">
-              <div className="w-20 h-20 rounded-full bg-fa-bg-hover flex items-center justify-center mb-6 shadow-inner">
-                <Calendar size={32} className="text-fa-text-muted" />
-              </div>
-              <h3 className="text-xl font-bold text-fa-text-primary mb-3">No Plan Generated Yet</h3>
-              <p className="text-fa-text-secondary max-w-sm leading-relaxed">
-                Fill out the details on the left and hit generate. We'll automatically build a backwards-planned timeline so you hit your deadline stress-free.
-              </p>
-            </div>
-          ) : loading ? (
-             <div className="flex-1 bg-fa-bg-shell border border-fa-border rounded-2xl flex flex-col items-center justify-center text-center p-12 min-h-[500px] shadow-sm">
-              <div className="relative mb-6">
-                <div className="absolute inset-0 border-4 border-fa-brand/20 rounded-full"></div>
-                <Loader2 size={48} className="text-fa-brand animate-spin" />
-              </div>
-              <h3 className="text-lg font-bold text-fa-text-primary mb-2">Analyzing Materials...</h3>
-              <p className="text-sm text-fa-text-secondary animate-pulse">Mapping out your optimal study path</p>
-            </div>
-          ) : (
-            <div className="space-y-6 animate-fade-in">
-              {/* Course Info & Time Breakdown */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-6 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-fa-brand/5 rounded-bl-[100px] -z-0"></div>
-                  <h4 className="text-xs font-bold text-fa-text-muted uppercase tracking-wider mb-4">Course Details</h4>
-                  <div className="font-['Sora'] text-xl font-bold text-fa-text-primary mb-1 relative z-10">{plan.course_info?.course_name || planTitle || 'Your Plan'}</div>
-                  <div className="text-sm text-fa-text-secondary relative z-10">{plan.course_info?.course_code} • {plan.course_info?.semester}</div>
-                  {plan.course_info?.instructor && (
-                    <div className="text-xs text-fa-text-muted mt-2 relative z-10">Instructor: {plan.course_info?.instructor}</div>
-                  )}
-                </div>
-
-                <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-6 shadow-sm">
-                  <h4 className="text-xs font-bold text-fa-text-muted uppercase tracking-wider mb-4">Time Investment</h4>
-                  <div className="flex items-end gap-3 mb-3">
-                    <span className="text-3xl font-bold text-white leading-none">{plan.time_breakdown?.total_study_hours_needed || 0}</span>
-                    <span className="text-sm text-fa-text-secondary mb-1">hrs total needed</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-fa-text-secondary">Average pace:</span>
-                    <span className="font-medium text-fa-text-primary">{plan.time_breakdown?.hours_per_week_avg} hrs/wk</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mt-1">
-                    <span className="text-fa-text-secondary">Crunch week:</span>
-                    <span className="font-medium text-orange-400">{plan.time_breakdown?.peak_week}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Study Tips */}
-              {plan.study_tips && plan.study_tips.length > 0 && (
-                <div className="bg-gradient-to-r from-fa-brand/10 to-transparent border border-fa-brand/20 rounded-2xl p-6 shadow-sm">
-                  <h4 className="text-sm font-bold text-fa-brand flex items-center gap-2 mb-4">
-                    <AlertCircle size={18} /> Strategic Advice
-                  </h4>
-                  <ul className="space-y-3">
-                    {plan.study_tips.map((tip, idx) => (
-                      <li key={idx} className="text-sm text-fa-text-primary flex items-start gap-3">
-                        <span className="mt-1 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-fa-brand"></span>
-                        <span className="leading-relaxed">{tip}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Extracted Deadlines */}
-              {plan.extracted_deadlines && plan.extracted_deadlines.length > 0 && (
-                <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-6 shadow-sm">
-                  <h4 className="text-sm font-bold text-fa-text-primary mb-5 flex items-center gap-2">
-                    <Clock size={18} className="text-fa-text-muted" /> Key Deadlines
-                  </h4>
-                  <div className="space-y-3">
-                    {plan.extracted_deadlines.map((deadline, idx) => (
-                      <div key={idx} className="flex flex-col sm:flex-row justify-between sm:items-center bg-fa-bg-page rounded-xl p-4 border border-fa-border hover:border-fa-brand/30 transition-colors gap-3">
-                        <div>
-                          <div className="flex items-center gap-3 mb-1.5">
-                            <span className={`text-[10px] uppercase font-bold px-2.5 py-1 rounded-md tracking-wider ${deadline.type === 'exam' ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-fa-brand/10 text-fa-brand border border-fa-brand/20'}`}>
-                              {deadline.type}
-                            </span>
-                            <span className="text-sm font-bold text-white">{deadline.title}</span>
-                          </div>
-                          <div className="text-xs text-fa-text-secondary truncate max-w-sm">{deadline.topics_covered?.join(', ')}</div>
-                        </div>
-                        <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center w-full sm:w-auto">
-                          <div className="text-sm font-bold text-fa-text-primary bg-fa-bg-hover px-3 py-1 rounded-lg">{deadline.due_date || deadline.exam_date}</div>
-                          {deadline.weightage && <div className="text-xs font-medium text-fa-text-muted mt-1">{deadline.weightage}</div>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Study Schedule Timeline */}
-              {plan.study_schedule && plan.study_schedule.length > 0 && (
-                <div className="bg-fa-bg-shell border border-fa-border rounded-2xl p-6 shadow-sm">
-                  <h4 className="text-sm font-bold text-fa-text-primary mb-8 flex items-center gap-2">
-                    <Calendar size={18} className="text-fa-text-muted" /> Daily Action Plan
-                  </h4>
-                  
-                  <div className="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-px before:bg-gradient-to-b before:from-fa-brand/50 before:via-fa-border before:to-transparent">
-                    {plan.study_schedule.map((day, dayIdx) => (
-                      <div key={dayIdx} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                        {/* Timeline Node */}
-                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-fa-brand bg-fa-bg-page text-fa-brand shadow-[0_0_15px_rgba(111,76,255,0.2)] shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10">
-                          <span className="text-[10px] font-bold">{day.date.split('-')[2]}</span>
-                        </div>
-                        
-                        {/* Card */}
-                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-5 rounded-2xl border border-fa-border bg-fa-bg-page shadow-sm hover:border-fa-brand/30 transition-colors">
-                          <div className="flex items-center justify-between mb-4 pb-3 border-b border-fa-border/50">
-                             <div className="font-bold text-fa-text-primary text-sm flex items-center gap-2">
-                               {new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                             </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            {day.tasks.map((task, taskIdx) => (
-                              <div key={taskIdx} className="flex flex-col gap-1.5 group/task">
-                                <div className="flex items-start justify-between">
-                                  <span className="text-sm font-medium text-fa-text-primary flex items-start gap-2">
-                                    <CheckCircle2 size={16} className="mt-0.5 text-fa-border group-hover/task:text-fa-brand transition-colors flex-shrink-0" />
-                                    <span className="leading-tight">{task.task_title}</span>
-                                  </span>
-                                  <span className="text-xs font-bold bg-fa-bg-hover text-fa-text-secondary px-2 py-1 rounded-md ml-3 whitespace-nowrap border border-fa-border/50">
-                                    {task.duration_mins}m
-                                  </span>
-                                </div>
-                                {task.notes && (
-                                  <span className="text-xs text-fa-text-muted ml-6 leading-relaxed border-l-2 border-fa-border pl-2">{task.notes}</span>
-                                )}
-                                {task.priority === 'High' && (
-                                  <span className="text-[10px] text-red-400 font-bold ml-6 uppercase tracking-wider bg-red-500/10 px-1.5 py-0.5 rounded w-fit">High Priority</span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 };

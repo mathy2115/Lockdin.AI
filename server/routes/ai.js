@@ -160,4 +160,52 @@ Your task:
   }
 });
 
+// AI Extract Tasks Endpoint (Syllabus Scanner)
+router.post('/extract-tasks', async (req, res) => {
+  try {
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ error: 'Text is required' });
+    }
+
+    const prompt = `
+You are an academic planner AI. Extract all topics, chapters, and deadlines from the syllabus text. Return a JSON array of tasks in this format: [{title, subject, deadline (YYYY-MM-DD), priority (High/Medium/Low), estimatedHours}]. If no deadline is found, estimate based on typical semester structure. Return only valid JSON.
+
+Syllabus Text:
+${text}
+`;
+
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-latest",
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }]
+    });
+
+    const responseText = response.content[0].text.trim();
+    
+    let tasks;
+    try {
+      const jsonString = responseText.replace(/^```json\n/, '').replace(/\n```$/, '');
+      tasks = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('Failed to parse Claude JSON response:', responseText);
+      // Try to extract JSON array using regex if formatting is weird
+      const match = responseText.match(/\[[\s\S]*\]/);
+      if (match) {
+        tasks = JSON.parse(match[0]);
+      } else {
+        throw new Error('AI returned an invalid response format.');
+      }
+    }
+
+    res.json(tasks);
+  } catch (error) {
+    console.error('Error in Extract Tasks Endpoint:', error);
+    res.status(500).json({ 
+      error: error.message || 'An unexpected error occurred while extracting tasks',
+    });
+  }
+});
+
 module.exports = router;

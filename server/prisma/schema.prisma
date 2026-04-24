@@ -14,6 +14,7 @@ model User {
   createdAt     DateTime       @default(now())
   studySessions StudySession[]
   moodLogs      MoodLog[]
+  tasks         Task[]
 }
 
 model StudySession {
@@ -40,4 +41,17 @@ model MoodLog {
   stress    Int
   note      String?
   createdAt DateTime @default(now())
+}
+
+model Task {
+  id             Int       @id @default(autoincrement())
+  userId         Int
+  user           User      @relation(fields: [userId], references: [id])
+  title          String
+  subject        String
+  deadline       DateTime?
+  priority       String    @default("Medium") // High, Medium, Low
+  status         String    @default("todo") // todo, inprogress, done
+  estimatedHours Int?
+  createdAt      DateTime  @default(now())
 }
