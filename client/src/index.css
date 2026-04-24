@@ -1,3 +1,26 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --fa-bg-page: #0A0E1A;
+  --fa-bg-shell: #111827;
+  --fa-bg-card: #1A2236;
+  --fa-bg-hover: #232D45;
+  --fa-brand: #6C8EFF;
+  --fa-text-primary: #F0F4FF;
+  --fa-text-secondary: #8892AA;
+  --fa-text-muted: #4A5568;
+  --fa-border: rgba(255,255,255,0.07);
+  --fa-state-focused: #4FC3F7;
+  --fa-state-distracted: #FFB347;
+  --fa-state-stressed: #FF8FAB;
+  --fa-state-fatigued: #B39DDB;
+  --fa-state-away: #78909C;
+}
+
+body {
+  background-color: var(--fa-bg-page);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--fa-text-primary);
+}
