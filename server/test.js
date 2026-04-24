@@ -1,0 +1,42 @@
+const http = require('http');
+
+const data = JSON.stringify({
+  duration: 45,
+  task: 'Math Homework',
+  focusScore: 8,
+  moodBefore: 5,
+  moodAfter: 8,
+  states: { Focused: 80, Distracted: 20 },
+  nudges: 1,
+  completed: true,
+  notes: ''
+});
+
+const options = {
+  hostname: 'localhost',
+  port: 5000,
+  path: '/api/ai/coach',
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Content-Length': data.length
+  }
+};
+
+const req = http.request(options, res => {
+  console.log(`statusCode: ${res.statusCode}`);
+  let body = '';
+  res.on('data', d => {
+    body += d;
+  });
+  res.on('end', () => {
+    console.log(body);
+  });
+});
+
+req.on('error', error => {
+  console.error(error);
+});
+
+req.write(data);
+req.end();

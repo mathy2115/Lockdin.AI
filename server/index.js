@@ -11,6 +11,10 @@ const prisma = new PrismaClient();
 app.use(cors());
 app.use(express.json());
 
+// AI Routes
+const aiRoutes = require('./routes/ai');
+app.use('/api/ai', aiRoutes);
+
 // Signup Route
 app.post('/api/auth/signup', async (req, res) => {
   try {
