@@ -1,9 +1,11 @@
 const express = require('express');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 const router = express.Router();
 
-// Initialize Gemini API
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Anthropic API
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 // AI Wellness Coach Endpoint
 router.post('/coach', async (req, res) => {
@@ -47,19 +49,21 @@ Tone guidelines:
 - Avoid generic phrases like "Keep up the good work".
 `;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-latest",
+      max_tokens: 200,
+      messages: [{ role: "user", content: prompt }]
+    });
 
-    res.json({ message: responseText });
+    res.json({ message: response.content[0].text });
   } catch (error) {
     console.error('Error in AI Coach:', error);
-    res.status(500).json({ error: 'Failed to generate coach insight' });
+    res.status(500).json({ error: error.message || 'Failed to generate coach insight' });
   }
 });
 
 // AI Academic Planner Endpoint
-router.post('/planner', async (req, res) => {
+router.post('/study-plan', async (req, res) => {
   try {
     const { syllabusText, currentDate, studyHoursPerDay = 2, sessionLengthMins = 25 } = req.body;
 
@@ -81,7 +85,7 @@ ${syllabusText}
 Your task:
 1. Extract all key information (course name, assignments, exams, topics).
 2. Backwards plan from each deadline (prep 5-7 days before assignments, 10-14 days before exams).
-3. Output a structured study plan in EXACTLY this JSON format (no markdown code blocks, just raw JSON):
+3. Output a structured study plan in EXACTLY this JSON format (no markdown code blocks, just raw JSON). DO NOT wrap the output in \`\`\`json or any other formatting, just return the JSON object:
 
 {
   "course_info": {
@@ -128,22 +132,31 @@ Your task:
 }
 `;
 
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash",
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
+    const response = await anthropic.messages.create({
+      model: "claude-3-5-sonnet-latest",
+      max_tokens: 2000,
+      messages: [{ role: "user", content: prompt }]
     });
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+
+    const responseText = response.content[0].text.trim();
     
-    // Parse the JSON to ensure it's valid before sending
-    const scheduleData = JSON.parse(responseText);
+    let scheduleData;
+    try {
+      // Sometimes Claude still returns markdown code blocks, so we handle that case.
+      const jsonString = responseText.replace(/^```json\n/, '').replace(/\n```$/, '');
+      scheduleData = JSON.parse(jsonString);
+    } catch (parseError) {
+      console.error('Failed to parse Claude JSON response:', responseText);
+      throw new Error('AI returned an invalid response format.');
+    }
 
     res.json(scheduleData);
   } catch (error) {
-    console.error('Error in AI Planner:', error);
-    res.status(500).json({ error: 'Failed to generate study schedule' });
+    console.error('Error in AI Planner Endpoint:', error);
+    res.status(500).json({ 
+      error: error.message || 'An unexpected error occurred while generating the study plan',
+      details: error.stack
+    });
   }
 });
 

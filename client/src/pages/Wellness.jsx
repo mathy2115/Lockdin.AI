@@ -89,6 +89,39 @@ export default function Wellness() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Focus DNA (Feature 9) */}
+      <div className="bg-gradient-to-br from-[#1A1E2E] to-[#2D243F] rounded-2xl p-6 border border-purple-500/20 shadow-lg relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-bl-full"></div>
+        <div className="mb-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            🧬 Focus DNA
+          </h2>
+          <p className="text-sm text-purple-200/70 mt-1">Your personalised 7-day productivity fingerprint.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-purple-300/60 uppercase tracking-wider font-semibold mb-1">Peak Performance</p>
+            <p className="text-sm font-medium text-white">You focus deepest between <span className="text-purple-400 font-bold">9:00 AM – 11:30 AM</span>.</p>
+          </div>
+          
+          <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-purple-300/60 uppercase tracking-wider font-semibold mb-1">Greatest Challenge</p>
+            <p className="text-sm font-medium text-white">Most distraction signals occur during <span className="text-red-400 font-bold">Organic Chemistry</span>.</p>
+          </div>
+          
+          <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-purple-300/60 uppercase tracking-wider font-semibold mb-1">Flow State</p>
+            <p className="text-sm font-medium text-white">Your average uninterrupted streak is <span className="text-blue-400 font-bold">28 minutes</span>.</p>
+          </div>
+          
+          <div className="bg-black/20 rounded-xl p-4 border border-white/5">
+            <p className="text-xs text-purple-300/60 uppercase tracking-wider font-semibold mb-1">Mood Correlation</p>
+            <p className="text-sm font-medium text-white">Your best focus days follow nights with <span className="text-green-400 font-bold">7+ hours sleep</span>.</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

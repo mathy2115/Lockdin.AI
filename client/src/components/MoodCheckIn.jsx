@@ -22,7 +22,7 @@ const MoodCheckIn = ({ type, onSubmit, onSkip }) => {
       localStorage.setItem('checkins', JSON.stringify(existing));
     }
     
-    onSubmit();
+    onSubmit({ mood, energy, note });
   };
 
   return (
