@@ -3,7 +3,7 @@ import PomodoroTimer from '../components/PomodoroTimer';
 import TaskManager from '../components/TaskManager';
 import MoodCheckIn from '../components/MoodCheckIn';
 import AdaptiveNudgeSystem from '../components/AdaptiveNudgeSystem';
-import WebcamAI from '../components/WebcamAI';
+import CameraMode from '../components/CameraMode';
 import { useAI } from '../context/AIContext';
 import { Loader2, Sparkles, X } from 'lucide-react';
 
@@ -15,12 +15,15 @@ const FocusSession = () => {
   const [aiDebrief, setAiDebrief] = useState(null);
   const [isDebriefLoading, setIsDebriefLoading] = useState(false);
   
-  const { isCameraActive, resolvedState, getSessionBreakdown, resetSessionBreakdown } = useAI();
+  const { getSessionBreakdown, resetSessionBreakdown } = useAI();
 
-  // Mock AI detected state for testing the nudge system when camera is off
+  // Manual test state vs Real camera state
   const [systemState, setSystemState] = useState('focused');
+  const [cameraState, setCameraState] = useState('focused');
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
-  const activeState = isCameraActive ? resolvedState : systemState;
+  // Fallback to testing dropdown if camera is off, otherwise use camera state
+  const activeState = isCameraActive ? cameraState : systemState;
 
   const handleStartTimer = (startCallback) => {
     setModalType('before');
@@ -145,8 +148,11 @@ const FocusSession = () => {
         currentTask={activeTask?.title || 'your task'} 
       />
 
-      {/* Webcam AI PiP Overlay */}
-      <WebcamAI />
+      {/* Camera Mode Component */}
+      <CameraMode 
+        onStateChange={(state) => setCameraState(state)} 
+        onToggle={(isActive) => setIsCameraActive(isActive)}
+      />
 
       {/* AI Post-Session Debrief Loading */}
       {isDebriefLoading && (
