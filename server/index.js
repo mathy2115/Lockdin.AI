@@ -92,4 +92,41 @@ app.get('/api/auth/user', auth, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+// Save mood log
+app.post('/api/mood', auth, async (req, res) => {
+  try {
+    const { mood, energy, stress, note } = req.body;
+    const moodLog = await prisma.moodLog.create({
+      data: {
+        userId: req.user,
+        mood: parseInt(mood),
+        energy: parseInt(energy),
+        stress: parseInt(stress),
+        note: note || '',
+      },
+    });
+    res.json(moodLog);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get last 7 days of mood logs
+app.get('/api/mood/week', auth, async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const logs = await prisma.moodLog.findMany({
+      where: {
+        userId: req.user,
+        date: { gte: sevenDaysAgo },
+      },
+      orderBy: { date: 'asc' },
+    });
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
