@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-<<<<<<< HEAD
     "@supabase/supabase-js": "^2.104.1",
     "axios": "^1.15.2",
     "lucide-react": "^1.9.0",
@@ -18,10 +17,6 @@
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",
     "recharts": "^3.8.1"
-=======
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5"
->>>>>>> f466af9549ed768fb52a1c6457b740719ef396b5
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
