@@ -31,7 +31,20 @@ import {
   History,
   Layout
 } from 'lucide-react';
+
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
+
+// === PER-USER STORAGE KEY ===
+const getStorageKey = (key) => {
+  const token = localStorage.getItem('token');
+  if (!token) return key;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return `${key}_${payload.id || payload.userId || payload.sub}`;
+  } catch {
+    return key;
+  }
+};
 
 // === STYLED COMPONENTS ===
 
@@ -132,7 +145,7 @@ const Column = ({ id, title, tasks, onDeleteTask }) => {
 
 const AcademicPlanner = () => {
   const [tasks, setTasks] = useState(() => {
-    const saved = localStorage.getItem('academicTasks');
+    const saved = localStorage.getItem(getStorageKey('academicTasks'));
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -141,15 +154,14 @@ const AcademicPlanner = () => {
   const [extractedText, setExtractedText] = useState('');
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [activeView, setActiveView] = useState('kanban'); // 'kanban' or 'calendar'
+  const [activeView, setActiveView] = useState('kanban');
 
-  // Planner State
   const [plannerOnboarding, setPlannerOnboarding] = useState(false);
   const [plannerConfig, setPlannerConfig] = useState(() => {
-    const saved = localStorage.getItem('planner_config');
+    const saved = localStorage.getItem(getStorageKey('planner_config'));
     return saved ? JSON.parse(saved) : {
       studyHours: 4,
-      examDates: [], // { subject: '', date: '' }
+      examDates: [],
       marks: ''
     };
   });
@@ -161,12 +173,12 @@ const AcademicPlanner = () => {
 
   // Persistence
   useEffect(() => {
-    localStorage.setItem('academicTasks', JSON.stringify(tasks));
+    localStorage.setItem(getStorageKey('academicTasks'), JSON.stringify(tasks));
   }, [tasks]);
 
   useEffect(() => {
     const handleStorageChange = (e) => {
-      if (e.key === 'academicTasks') {
+      if (e.key === getStorageKey('academicTasks')) {
         setTasks(JSON.parse(e.newValue || '[]'));
       }
     };
@@ -175,7 +187,7 @@ const AcademicPlanner = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('planner_config', JSON.stringify(plannerConfig));
+    localStorage.setItem(getStorageKey('planner_config'), JSON.stringify(plannerConfig));
   }, [plannerConfig]);
 
   const showToast = (msg) => {
@@ -183,7 +195,6 @@ const AcademicPlanner = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // --- PDF Extraction (Frontend only) ---
   const loadPdfJs = () => {
     return new Promise((resolve, reject) => {
       if (window.pdfjsLib) return resolve(window.pdfjsLib);
@@ -222,9 +233,7 @@ const AcademicPlanner = () => {
         text += content.items.map(item => item.str).join(' ') + '\n';
       }
 
-      if (!text.trim()) {
-        throw new Error('scanned_pdf');
-      }
+      if (!text.trim()) throw new Error('scanned_pdf');
 
       setExtractedText(text);
       setPlannerOnboarding(true);
@@ -241,7 +250,6 @@ const AcademicPlanner = () => {
     }
   };
 
-    // --- Groq API Call for Study Plan ---
   const handleGenerateStudyPlan = async () => {
     if (!extractedText.trim()) return;
 
@@ -263,15 +271,11 @@ const AcademicPlanner = () => {
         body: JSON.stringify({
           model: 'llama-3.1-8b-instant',
           max_tokens: 4096,
-          messages: [{
-            role: 'user',
-            content: prompt
-          }]
+          messages: [{ role: 'user', content: prompt }]
         })
       });
 
       const data = await response.json();
-
       const text = data.choices[0].message.content;
       if (!text) throw new Error('Empty response from Groq');
 
@@ -280,13 +284,11 @@ const AcademicPlanner = () => {
       let newTasks;
       try {
         newTasks = JSON.parse(cleaned);
-      } catch (parseErr) {
+      } catch {
         throw new Error('invalid_json');
       }
 
-      if (!Array.isArray(newTasks)) {
-        throw new Error('invalid_json');
-      }
+      if (!Array.isArray(newTasks)) throw new Error('invalid_json');
 
       newTasks = newTasks.map(t => ({
         ...t,
@@ -297,12 +299,13 @@ const AcademicPlanner = () => {
 
       setTasks(prev => {
         const updated = [...prev, ...newTasks];
-        localStorage.setItem('academicTasks', JSON.stringify(updated));
+        localStorage.setItem(getStorageKey('academicTasks'), JSON.stringify(updated));
         return updated;
       });
+
       setPlannerOnboarding(false);
       setExtractedText('');
-      setActiveView('kanban'); // Switch to kanban view
+      setActiveView('kanban');
       showToast(`📅 Study plan generated with ${newTasks.length} tasks!`);
     } catch (err) {
       console.error(err);
@@ -316,27 +319,18 @@ const AcademicPlanner = () => {
     }
   };
 
-  // --- DND Handlers ---
   const onDragEnd = (result) => {
     const { source, destination, draggableId } = result;
-
     if (!destination) return;
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const updatedTasks = Array.from(tasks);
     const taskIndex = updatedTasks.findIndex(t => t.id === draggableId);
     const [movedTask] = updatedTasks.splice(taskIndex, 1);
-
-    // Update status based on destination column
     movedTask.status = destination.droppableId;
 
-    // Re-insert at the correct position (or just push if you don't care about order within column)
-    // Actually, to keep order within column, we need to handle indexes carefully
-    // For simplicity, we'll just update the status and the overall list
     setTasks(prev => {
       const newList = prev.filter(t => t.id !== draggableId);
-      // We could insert at a specific index if we tracked column-specific order, 
-      // but status-based filtering is easier for now.
       return [...newList, movedTask];
     });
   };
@@ -368,7 +362,6 @@ const AcademicPlanner = () => {
 
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* HEADER */}
       <header className="flex items-center justify-between pb-6 border-b border-fa-border mb-6 flex-shrink-0">
         <div className="flex items-center gap-6">
           <div>
@@ -379,15 +372,13 @@ const AcademicPlanner = () => {
           <div className="flex bg-fa-bg-shell rounded-xl p-1 border border-fa-border ml-4">
             <button
               onClick={() => setActiveView('kanban')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'kanban' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'kanban' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'}`}
             >
               <Layout size={16} /> Kanban
             </button>
             <button
               onClick={() => setActiveView('calendar')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'calendar' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'calendar' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'}`}
             >
               <CalendarIcon size={16} /> Calendar
             </button>
@@ -409,16 +400,9 @@ const AcademicPlanner = () => {
             <Plus size={18} /> Add Task
           </button>
         </div>
-        <input
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          accept=".pdf"
-          onChange={handleFileUpload}
-        />
+        <input type="file" ref={fileInputRef} className="hidden" accept=".pdf" onChange={handleFileUpload} />
       </header>
 
-      {/* MAIN VIEW */}
       <div className="flex-1 min-h-0 overflow-hidden">
         {activeView === 'kanban' ? (
           <DragDropContext onDragEnd={onDragEnd}>
@@ -430,36 +414,25 @@ const AcademicPlanner = () => {
           </DragDropContext>
         ) : (
           <div className="h-full flex flex-col bg-[#0d1117] rounded-2xl border border-white/5 overflow-hidden">
-            {/* Calendar Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
               <div className="flex items-center gap-4">
                 <h3 className="text-xl font-bold text-white min-w-[150px]">
                   {format(currentCalendarDate, 'MMMM yyyy')}
                 </h3>
                 <div className="flex items-center bg-black/40 rounded-lg p-1 border border-white/10">
-                  <button
-                    onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}
-                    className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors"
-                  >
+                  <button onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))} className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors">
                     <ChevronLeft size={20} />
                   </button>
-                  <button
-                    onClick={() => setCurrentCalendarDate(new Date())}
-                    className="px-3 py-1 text-xs font-bold text-white hover:bg-white/10 rounded-md transition-colors border-x border-white/5 mx-1"
-                  >
+                  <button onClick={() => setCurrentCalendarDate(new Date())} className="px-3 py-1 text-xs font-bold text-white hover:bg-white/10 rounded-md transition-colors border-x border-white/5 mx-1">
                     Today
                   </button>
-                  <button
-                    onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}
-                    className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors"
-                  >
+                  <button onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))} className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors">
                     <ChevronRightIcon size={20} />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Calendar Grid */}
             <div className="flex-1 grid grid-cols-7 border-b border-white/5 h-12 bg-white/[0.01]">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
                 <div key={day} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-fa-text-muted">
@@ -483,25 +456,19 @@ const AcademicPlanner = () => {
                     <div
                       key={dayStr}
                       onClick={() => setSelectedDayTasks({ date: day, tasks: dayTasks, exams: userExams })}
-                      className={`min-h-[120px] border-r border-b border-white/5 p-2 transition-all hover:bg-white/[0.03] cursor-pointer group flex flex-col ${!isSameMonth(day, currentCalendarDate) ? 'opacity-30' : ''
-                        }`}
+                      className={`min-h-[120px] border-r border-b border-white/5 p-2 transition-all hover:bg-white/[0.03] cursor-pointer group flex flex-col ${!isSameMonth(day, currentCalendarDate) ? 'opacity-30' : ''}`}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${isToday(day) ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary group-hover:text-white'
-                          }`}>
+                        <span className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${isToday(day) ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary group-hover:text-white'}`}>
                           {format(day, 'd')}
                         </span>
                       </div>
-
                       <div className="space-y-1 overflow-hidden">
-                        {/* Exams First */}
                         {userExams.map((exam, i) => (
                           <div key={i} className="bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded truncate flex items-center gap-1 shadow-sm">
                             <Target size={10} /> {exam.subject}
                           </div>
                         ))}
-
-                        {/* Tasks */}
                         {dayTasks.slice(0, 3).map((task) => (
                           <div
                             key={task.id}
@@ -515,11 +482,8 @@ const AcademicPlanner = () => {
                             {task.subject || 'Study'} → {task.topic || task.title}
                           </div>
                         ))}
-
                         {dayTasks.length > 3 && (
-                          <div className="text-[8px] font-bold text-fa-text-muted pl-1">
-                            + {dayTasks.length - 3} more
-                          </div>
+                          <div className="text-[8px] font-bold text-fa-text-muted pl-1">+ {dayTasks.length - 3} more</div>
                         )}
                       </div>
                     </div>
@@ -531,7 +495,6 @@ const AcademicPlanner = () => {
         )}
       </div>
 
-      {/* PLANNER ONBOARDING MODAL */}
       {plannerOnboarding && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
           <div className="bg-[#1A1E2E] border border-fa-brand/30 rounded-3xl p-8 w-full max-w-xl shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
@@ -551,11 +514,8 @@ const AcademicPlanner = () => {
             </div>
 
             <div className="space-y-6">
-              {/* Extracted Text Review */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
-                <label className="block text-sm font-bold text-white mb-3">
-                  Review Syllabus Content
-                </label>
+                <label className="block text-sm font-bold text-white mb-3">Review Syllabus Content</label>
                 <textarea
                   value={extractedText}
                   onChange={(e) => setExtractedText(e.target.value)}
@@ -563,11 +523,9 @@ const AcademicPlanner = () => {
                 />
               </div>
 
-              {/* Daily Hours */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
-                  <Clock size={16} className="text-fa-brand" />
-                  Daily Study Capacity
+                  <Clock size={16} className="text-fa-brand" /> Daily Study Capacity
                 </label>
                 <div className="flex items-center gap-4">
                   <input
@@ -581,24 +539,18 @@ const AcademicPlanner = () => {
                 <p className="text-[10px] text-fa-text-muted mt-2 uppercase tracking-wider font-bold">Recommended: 4–6 hours for deep focus</p>
               </div>
 
-              {/* Exam Dates */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <div className="flex justify-between items-center mb-4">
                   <label className="block text-sm font-bold text-white flex items-center gap-2">
-                    <Target size={16} className="text-red-400" />
-                    Upcoming Exam Dates
+                    <Target size={16} className="text-red-400" /> Upcoming Exam Dates
                   </label>
                   <button
-                    onClick={() => setPlannerConfig({
-                      ...plannerConfig,
-                      examDates: [...plannerConfig.examDates, { subject: '', date: '' }]
-                    })}
+                    onClick={() => setPlannerConfig({ ...plannerConfig, examDates: [...plannerConfig.examDates, { subject: '', date: '' }] })}
                     className="text-[10px] font-bold bg-white/5 hover:bg-white/10 text-white px-3 py-1 rounded-full border border-white/10 transition-colors uppercase tracking-widest"
                   >
                     + Add Exam
                   </button>
                 </div>
-
                 <div className="space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                   {plannerConfig.examDates.map((exam, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2">
@@ -623,10 +575,7 @@ const AcademicPlanner = () => {
                         className="col-span-5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-fa-brand outline-none [color-scheme:dark]"
                       />
                       <button
-                        onClick={() => {
-                          const newExams = plannerConfig.examDates.filter((_, i) => i !== idx);
-                          setPlannerConfig({ ...plannerConfig, examDates: newExams });
-                        }}
+                        onClick={() => setPlannerConfig({ ...plannerConfig, examDates: plannerConfig.examDates.filter((_, i) => i !== idx) })}
                         className="col-span-1 flex items-center justify-center text-fa-text-muted hover:text-red-400"
                       >
                         <X size={16} />
@@ -641,11 +590,9 @@ const AcademicPlanner = () => {
                 </div>
               </div>
 
-              {/* Previous Marks */}
               <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
                 <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
-                  <History size={16} className="text-amber-400" />
-                  Academic History (Optional)
+                  <History size={16} className="text-amber-400" /> Academic History (Optional)
                 </label>
                 <textarea
                   placeholder="e.g. Maths: 45/100, Physics: 60/100. This helps AI prioritize topics."
@@ -676,13 +623,9 @@ const AcademicPlanner = () => {
         </div>
       )}
 
-      {/* DAY DETAIL MODAL */}
       {selectedDayTasks && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-end animate-in fade-in duration-200" onClick={() => setSelectedDayTasks(null)}>
-          <div
-            className="w-full max-w-md h-full bg-[#1A1E2E] border-l border-white/10 p-8 shadow-2xl animate-in slide-in-from-right duration-300"
-            onClick={e => e.stopPropagation()}
-          >
+          <div className="w-full max-w-md h-full bg-[#1A1E2E] border-l border-white/10 p-8 shadow-2xl animate-in slide-in-from-right duration-300" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h3 className="text-2xl font-black text-white">{format(selectedDayTasks.date, 'eeee')}</h3>
@@ -694,7 +637,6 @@ const AcademicPlanner = () => {
             </div>
 
             <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-180px)] pr-4 custom-scrollbar">
-              {/* Exams Section */}
               {selectedDayTasks.exams.length > 0 && (
                 <div className="space-y-3">
                   <h4 className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
@@ -714,7 +656,6 @@ const AcademicPlanner = () => {
                 </div>
               )}
 
-              {/* Tasks Section */}
               <div className="space-y-4">
                 <h4 className="text-[10px] font-black text-fa-brand uppercase tracking-widest flex items-center gap-2">
                   <CheckCircle2 size={14} /> Scheduled Tasks
@@ -731,21 +672,16 @@ const AcademicPlanner = () => {
                     <div
                       key={task.id}
                       className={`p-5 rounded-2xl border transition-all hover:scale-[1.02] ${task.status === 'done' ? 'bg-white/[0.02] border-white/10 opacity-60' :
-                        task.type === 'revision'
-                          ? 'bg-amber-500/5 border-amber-500/10'
-                          : 'bg-fa-brand/5 border-fa-brand/10'
-                        }`}
+                        task.type === 'revision' ? 'bg-amber-500/5 border-amber-500/10' : 'bg-fa-brand/5 border-fa-brand/10'}`}
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2">
                             <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${task.status === 'done' ? 'bg-green-500/20 text-green-400' :
-                              task.status === 'inprogress' ? 'bg-blue-500/20 text-blue-400' :
-                                'bg-white/10 text-fa-text-secondary'
-                              }`}>
+                              task.status === 'inprogress' ? 'bg-blue-500/20 text-blue-400' : 'bg-white/10 text-fa-text-secondary'}`}>
                               {task.status || 'todo'}
                             </span>
-                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-white/5 text-fa-text-muted border border-white/5`}>
+                            <span className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-white/5 text-fa-text-muted border border-white/5">
                               {task.source === 'ai' ? 'AI-Generated' : 'Manual'}
                             </span>
                           </div>
@@ -755,10 +691,8 @@ const AcademicPlanner = () => {
                           <span className="text-xs font-bold">{task.estimatedHours || 1}h</span>
                         </div>
                       </div>
-
                       <h5 className="text-white font-bold text-lg mb-1 leading-tight">{task.subject || 'Untitled Subject'}</h5>
                       <p className="text-fa-brand text-sm font-bold mb-3">{task.topic || task.title}</p>
-
                       {task.subTopic && (
                         <div className="pl-3 border-l-2 border-white/5">
                           <p className="text-xs text-fa-text-secondary leading-relaxed">{task.subTopic}</p>
@@ -780,7 +714,6 @@ const AcademicPlanner = () => {
         </div>
       )}
 
-      {/* MANUAL TASK MODAL */}
       {isManualModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[#161b22] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
@@ -790,47 +723,27 @@ const AcademicPlanner = () => {
                 <X size={20} />
               </button>
             </div>
-
             <form onSubmit={handleAddManualTask} className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-fa-text-secondary mb-1">Subject Name</label>
-                <input
-                  type="text" required
-                  value={manualForm.subject} onChange={e => setManualForm({ ...manualForm, subject: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
-                  placeholder="e.g. Mathematics"
-                />
+                <input type="text" required value={manualForm.subject} onChange={e => setManualForm({ ...manualForm, subject: e.target.value })}
+                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none" placeholder="e.g. Mathematics" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-fa-text-secondary mb-1">Topic</label>
-                <input
-                  type="text" required
-                  value={manualForm.topic} onChange={e => setManualForm({ ...manualForm, topic: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
-                  placeholder="e.g. Calculus"
-                />
+                <input type="text" required value={manualForm.topic} onChange={e => setManualForm({ ...manualForm, topic: e.target.value })}
+                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none" placeholder="e.g. Calculus" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-fa-text-secondary mb-1">Sub Topic</label>
-                <input
-                  type="text" required
-                  value={manualForm.subTopic} onChange={e => setManualForm({ ...manualForm, subTopic: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
-                  placeholder="e.g. Integration by Parts"
-                />
+                <input type="text" required value={manualForm.subTopic} onChange={e => setManualForm({ ...manualForm, subTopic: e.target.value })}
+                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none" placeholder="e.g. Integration by Parts" />
               </div>
-
               <div>
                 <label className="block text-xs font-medium text-fa-text-secondary mb-1">Schedule Date (Optional)</label>
-                <input
-                  type="date"
-                  value={manualForm.date} onChange={e => setManualForm({ ...manualForm, date: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none [color-scheme:dark]"
-                />
+                <input type="date" value={manualForm.date} onChange={e => setManualForm({ ...manualForm, date: e.target.value })}
+                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none [color-scheme:dark]" />
               </div>
-
               <button type="submit" className="w-full py-3 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-xl font-bold mt-2 transition-colors shadow-lg shadow-fa-brand/20">
                 Create Task
               </button>
@@ -839,7 +752,6 @@ const AcademicPlanner = () => {
         </div>
       )}
 
-      {/* TOAST NOTIFICATION */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-fa-brand border border-white/20 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
           <CheckCircle2 size={18} />
