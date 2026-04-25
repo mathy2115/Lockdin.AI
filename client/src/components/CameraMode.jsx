@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, CameraOff, Loader2 } from 'lucide-react';
 
 const TM_MODEL_URL = '/tm-model/';
-const FACE_API_WEIGHTS = '/weights'
 
 const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
   const [hasConsent, setHasConsent] = useState(() => localStorage.getItem('camConsentGiven') === 'true');
@@ -19,21 +18,46 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
   const postureIntervalRef = useRef(null);
 
   // Latest readings refs to avoid stale closures in setInterval
-  const latestEmotionRef = useRef('neutral');
+  const latestEmotionRef = useRef({ label: 'neutral', confidence: 1 });
   const latestPostureRef = useRef('Good Posture');
   const noFaceDetectedRef = useRef(false);
+  const emotionBufferRef = useRef([]);
+  const faceMeshRef = useRef(null);
+  const latestLandmarksRef = useRef(null);
+  const consecutiveNeutralRef = useRef(0);
 
   // 1. Initialize Models
   const loadModels = async () => {
     try {
-      // Load face-api models
-      if (!window.faceapi.nets.tinyFaceDetector.isLoaded) {
-        await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_WEIGHTS);
-        await window.faceapi.nets.faceExpressionNet.loadFromUri(FACE_API_WEIGHTS);
+      // Initialize MediaPipe Face Mesh
+      if (!faceMeshRef.current) {
+        const faceMesh = new window.FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+        faceMesh.onResults((results) => {
+          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+            latestLandmarksRef.current = results.multiFaceLandmarks[0];
+            noFaceDetectedRef.current = false;
+          } else {
+            latestLandmarksRef.current = null;
+            noFaceDetectedRef.current = true;
+          }
+        });
+        faceMeshRef.current = faceMesh;
       }
 
       // Load TM Pose model
       if (!tmModelRef.current) {
+        if (!window.tmPose) {
+          console.error('Teachable Machine not loaded');
+          return;
+        }
         const modelURL = TM_MODEL_URL + "model.json";
         const metadataURL = TM_MODEL_URL + "metadata.json";
         tmModelRef.current = await window.tmPose.load(modelURL, metadataURL);
@@ -83,7 +107,10 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
 
   // 4. Resolve State Logic
   const resolveState = () => {
-    const emotion = latestEmotionRef.current.toLowerCase();
+    const emotionDataObj = latestEmotionRef.current;
+    const emotion = emotionDataObj.label ? emotionDataObj.label.toLowerCase() : 'neutral';
+    const confidence = emotionDataObj.confidence || 0;
+    
     const posture = latestPostureRef.current; 
     const noFace = noFaceDetectedRef.current;
 
@@ -93,51 +120,102 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
       nextState = 'Away';
     } else if (posture === 'Head in Hands') {
       nextState = 'Stressed';
-    } else if (emotion === 'sad' || emotion === 'fearful') {
+    } else if (emotion === 'sad' && confidence > 0.35) {
+      nextState = 'Stressed';
+    } else if (emotion === 'angry' && confidence > 0.35) {
+      nextState = 'Stressed';
+    } else if (emotion === 'fearful' && confidence > 0.3) {
       nextState = 'Fatigued';
-    } else if (emotion === 'surprised' || emotion === 'disgusted') {
+    } else if (emotion === 'disgusted' && confidence > 0.3) {
+      nextState = 'Fatigued';
+    } else if (emotion === 'surprised' && confidence > 0.35) {
       nextState = 'Distracted';
-    } else if (posture === 'Good Posture' && (emotion === 'neutral' || emotion === 'happy')) {
+    } else if (emotion === 'happy' && confidence > 0.4) {
+      nextState = 'Focused';
+    } else if (emotion === 'neutral' && confidence > 0.5) {
       nextState = 'Focused';
     } else {
       nextState = 'Focused';
     }
 
-    setCurrentState(prev => {
-      if (prev !== nextState) {
-        if (onStateChange) onStateChange(nextState.toLowerCase());
-      }
-      return nextState;
-    });
+    setCurrentState(nextState);
   };
+
+  useEffect(() => {
+    if (currentState && onStateChange) {
+      onStateChange(currentState.toLowerCase());
+    }
+  }, [currentState, onStateChange]);
 
   // 5. Detection Loops
   const handleVideoPlay = () => {
-    if (!window.faceapi || !tmModelRef.current) return;
-
-    // Emotion Loop (1.5s)
+    // Emotion Loop (600ms)
     emotionIntervalRef.current = setInterval(async () => {
       if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
 
-      const detections = await window.faceapi
-        .detectSingleFace(videoRef.current, new window.faceapi.TinyFaceDetectorOptions())
-        .withFaceExpressions();
+      if (faceMeshRef.current) {
+        await faceMeshRef.current.send({ image: videoRef.current });
+      }
 
-      if (detections) {
+      const landmarks = latestLandmarksRef.current;
+      if (landmarks) {
         noFaceDetectedRef.current = false;
-        const expressions = detections.expressions;
-        const dominantEmotion = Object.keys(expressions).reduce((a, b) => expressions[a] > expressions[b] ? a : b);
-        const confidence = Math.round(expressions[dominantEmotion] * 100);
 
-        latestEmotionRef.current = dominantEmotion;
-        setEmotionData({ label: dominantEmotion, confidence });
+        // Heuristic Logic
+        const getDist = (p1, p2) => Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
+        const faceHeight = getDist(landmarks[10], landmarks[152]);
+        
+        const mouthOpenRatio = getDist(landmarks[13], landmarks[14]) / faceHeight;
+        const eyebrowRatio = getDist(landmarks[70], landmarks[159]) / faceHeight;
+        const mouthCenterY = (landmarks[61].y + landmarks[291].y) / 2;
+        const mouthCornerRatio = (landmarks[0].y - mouthCenterY) / faceHeight;
+
+        const mouthOpen = mouthOpenRatio > 0.08;
+        const smiling = mouthCornerRatio > 0.02;
+        const frowned = mouthCornerRatio < -0.02;
+
+        let detectedLabel = 'neutral';
+        if (mouthOpen && smiling) detectedLabel = 'happy';
+        else if (mouthOpen) detectedLabel = 'surprised';
+        else if (frowned) detectedLabel = 'sad';
+
+        const detectedConfidence = 0.8; // Constant for heuristic
+
+        // Rolling Buffer of last 5
+        const buffer = emotionBufferRef.current;
+        buffer.push(detectedLabel);
+        if (buffer.length > 5) buffer.shift();
+
+        let finalEmotion = detectedLabel;
+        if (buffer.length === 5) {
+          const counts = {};
+          buffer.forEach(e => counts[e] = (counts[e] || 0) + 1);
+          if (counts['neutral'] && counts['neutral'] >= 4) {
+             finalEmotion = 'neutral';
+          } else {
+             let maxCount = 0;
+             let mostFreq = finalEmotion;
+             Object.entries(counts).forEach(([emotion, count]) => {
+                if (emotion !== 'neutral' && count > maxCount) {
+                   maxCount = count;
+                   mostFreq = emotion;
+                }
+             });
+             if (maxCount > 0) finalEmotion = mostFreq;
+          }
+        }
+
+        latestEmotionRef.current = { label: finalEmotion, confidence: detectedConfidence };
+        setEmotionData({ label: finalEmotion, confidence: Math.round(detectedConfidence * 100) });
       } else {
         noFaceDetectedRef.current = true;
-        latestEmotionRef.current = 'none';
+        latestEmotionRef.current = { label: 'none', confidence: 0 };
+        emotionBufferRef.current = [];
+        consecutiveNeutralRef.current = 0;
         setEmotionData({ label: 'none', confidence: 0 });
       }
       resolveState();
-    }, 1500);
+    }, 600);
 
     // Posture Loop (2.0s)
     postureIntervalRef.current = setInterval(async () => {
