@@ -19,8 +19,6 @@ import { useSettings } from './hooks/useSettings';
 import { useEffect } from 'react';
 
 function App() {
-  // Simple check for token - in a real app, you'd use a proper AuthContext
-  const isAuthenticated = !!localStorage.getItem('token');
   const { settings } = useSettings();
 
   useEffect(() => {
@@ -44,18 +42,18 @@ function App() {
             <Route path="/signup" element={<Signup />} />
             
             {/* Protected Routes */}
-            <Route path="/" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Landing />} />
-            <Route path="/dashboard" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
-            <Route path="/planner" element={isAuthenticated ? <Layout><AcademicPlanner /></Layout> : <Navigate to="/login" />} />
-            <Route path="/focus" element={isAuthenticated ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
-            <Route path="/wellness" element={isAuthenticated ? <Layout><Wellness /></Layout> : <Navigate to="/login" />} />
-            <Route path="/onboarding" element={isAuthenticated ? <Onboarding /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={isAuthenticated ? <Layout><Settings /></Layout> : <Navigate to="/login" />} />
+            <Route path="/" element={localStorage.getItem('token') ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
+            <Route path="/dashboard" element={localStorage.getItem('token') ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
+            <Route path="/planner" element={localStorage.getItem('token') ? <Layout><AcademicPlanner /></Layout> : <Navigate to="/login" />} />
+            <Route path="/focus" element={localStorage.getItem('token') ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
+            <Route path="/wellness" element={localStorage.getItem('token') ? <Layout><Wellness /></Layout> : <Navigate to="/login" />} />
+            <Route path="/onboarding" element={localStorage.getItem('token') ? <Onboarding /> : <Navigate to="/login" />} />
+            <Route path="/settings" element={localStorage.getItem('token') ? <Layout><Settings /></Layout> : <Navigate to="/login" />} />
             
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
-          {isAuthenticated && <PomodoroMiniWidget />}
+          {localStorage.getItem('token') && <PomodoroMiniWidget />}
         </BrowserRouter>
       </TimerProvider>
     </AIProvider>

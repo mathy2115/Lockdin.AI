@@ -19,15 +19,7 @@ const Login = () => {
       const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
-        
-        // Route correctly if they haven't done onboarding
-        if (localStorage.getItem('onboardingDone') === 'true') {
-          navigate('/dashboard');
-        } else {
-          // You could also just strictly route to /dashboard and let dashboard redirect to onboarding, 
-          // but checking here is slightly smoother.
-          navigate('/dashboard');
-        }
+        navigate('/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
