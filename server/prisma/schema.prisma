@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -11,6 +12,7 @@ model User {
   id            Int            @id @default(autoincrement())
   email         String         @unique
   password      String
+  name          String?
   createdAt     DateTime       @default(now())
   studySessions StudySession[]
   moodLogs      MoodLog[]
@@ -18,17 +20,17 @@ model User {
 }
 
 model StudySession {
-  id            Int       @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   userId        Int
-  user          User      @relation(fields: [userId], references: [id])
-  date          DateTime  @default(now())
+  user          User     @relation(fields: [userId], references: [id])
+  date          DateTime @default(now())
   durationMins  Int
   mode          String
   moodBefore    Int?
   energyBefore  Int?
   focusQuality  Int?
   dominantState String?
-  createdAt     DateTime  @default(now())
+  createdAt     DateTime @default(now())
 }
 
 model MoodLog {
@@ -50,8 +52,8 @@ model Task {
   title          String
   subject        String
   deadline       DateTime?
-  priority       String    @default("Medium") // High, Medium, Low
-  status         String    @default("todo") // todo, inprogress, done
+  priority       String    @default("Medium")
+  status         String    @default("todo")
   estimatedHours Int?
   createdAt      DateTime  @default(now())
 }

@@ -7,7 +7,6 @@ const DEFAULT_SETTINGS = {
   stretch: true,
   hydration: true,
   encouragement: true,
-  refocus: true,
 };
 
 const FREQUENCY_MAP = {
@@ -41,6 +40,8 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
   // Debounced state to prevent flicker on away detection
   const [stableState, setStableState] = useState(currentState);
   const awayTimerRef = useRef(null);
+  const stateStartTimeRef = useRef(Date.now());
+  const [activeNudge, setActiveNudge] = useState(null); // 'breathing', 'stretch', 'away_return'
 
   useEffect(() => {
     if (currentState === 'away') {
@@ -153,40 +154,45 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
     }
   };
 
-  // State Effect
+  // Nudge Timers Effect
   useEffect(() => {
-    // Reset state flags
-    setTimeout(() => setIsDismissed(false), 0);
+    stateStartTimeRef.current = Date.now();
+    setActiveNudge(null);
+    setIsDismissed(false);
     stopTone();
     window.speechSynthesis?.cancel();
 
-    if (currentState === 'focused') {
-      if (!focusStartTimeRef.current) focusStartTimeRef.current = Date.now();
-      playTone(396, 'sine'); // Ambient low gain tone
-    } else {
-      // Pause hydration tracking if not focused
-      focusStartTimeRef.current = null;
-    }
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - stateStartTimeRef.current;
 
-    if (currentState === 'distracted' && settings.refocus) {
-      speakNudge(`Hey, you were working on ${currentTask}. Want to refocus?`);
-    }
-
-    if (currentState === 'stressed') {
-      if (settings.breathing) {
-        playTone(432, 'sine'); // Calming soft pulse
-        setTimeout(() => fetchEncouragement(currentTask), 0);
-        speakNudge("Let's take a deep breath. Inhale for 4 seconds, hold for 7, exhale for 8.");
+      if (currentState === 'stressed' && elapsed > 60000 && !activeNudge && !isDismissed) {
+        if (settings.breathing) {
+          setActiveNudge('breathing');
+          playTone(432, 'sine');
+          speakNudge("Let's take a deep breath. Inhale for 4 seconds, hold for 7, exhale for 8.");
+          fetchEncouragement(currentTask);
+        }
       }
-    }
 
-    if (currentState === 'fatigued' && settings.stretch) {
-      playTone(417, 'triangle', 2); // Energizing tone, short duration
-      speakNudge("You seem fatigued. Time for a quick stretch break.");
-    }
+      if (currentState === 'fatigued' && elapsed > 90000 && !activeNudge && !isDismissed) {
+        if (settings.stretch) {
+          setActiveNudge('stretch');
+          playTone(417, 'triangle', 2);
+          speakNudge("You seem tired. Time for a quick stretch break.");
+        }
+      }
 
-    return () => stopTone();
-  }, [currentState, currentTask, settings.style]);
+      if (stableState === 'away' && elapsed > 180000 && !activeNudge) {
+        setActiveNudge('away_return');
+        speakNudge("You've been away for a while. Everything okay?");
+      }
+    }, 1000);
+
+    return () => {
+      clearInterval(interval);
+      stopTone();
+    };
+  }, [currentState, stableState, settings, currentTask, activeNudge, isDismissed]);
 
   // Hydration tracking effect
   useEffect(() => {
@@ -229,19 +235,19 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
     if (!showSettings) return null;
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-        <div className="bg-fa-bg-page border border-fa-border rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in text-fa-text-primary">
+        <div className="bg-[#FFFDF4] border border-[#E8D5A3] rounded-xl p-6 w-full max-w-md shadow-2xl animate-fade-in text-[#1A1A2E]">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold">Nudge Settings</h2>
-            <button onClick={() => setShowSettings(false)} className="text-fa-text-muted hover:text-white">&times;</button>
+            <button onClick={() => setShowSettings(false)} className="text-gray-400 hover:text-[#1A1A2E]">&times;</button>
           </div>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-fa-text-secondary">Nudge Frequency</label>
+              <label className="block text-sm font-medium mb-1 text-gray-500">Nudge Frequency</label>
               <select
                 value={settings.frequency}
                 onChange={(e) => updateSettings({ ...settings, frequency: e.target.value })}
-                className="w-full bg-fa-bg-hover border border-fa-border rounded px-3 py-2 text-sm focus:outline-none focus:border-fa-brand"
+                className="w-full bg-white border border-[#E8D5A3] rounded px-3 py-2 text-sm focus:outline-none focus:border-fa-brand"
               >
                 <option value="Low">Low (Every 10 mins)</option>
                 <option value="Medium">Medium (Every 5 mins)</option>
@@ -250,11 +256,11 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1 text-fa-text-secondary">Nudge Style</label>
+              <label className="block text-sm font-medium mb-1 text-gray-500">Nudge Style</label>
               <select
                 value={settings.style}
                 onChange={(e) => updateSettings({ ...settings, style: e.target.value })}
-                className="w-full bg-fa-bg-hover border border-fa-border rounded px-3 py-2 text-sm focus:outline-none focus:border-fa-brand"
+                className="w-full bg-white border border-[#E8D5A3] rounded px-3 py-2 text-sm focus:outline-none focus:border-fa-brand"
               >
                 <option value="Silent">Silent (Badge only)</option>
                 <option value="Gentle">Gentle (Popup & Tones)</option>
@@ -263,13 +269,12 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
             </div>
 
             <div className="pt-4 border-t border-fa-border">
-              <h3 className="text-sm font-semibold mb-3 text-fa-text-secondary">Nudge Types</h3>
+              <h3 className="text-sm font-semibold mb-3 text-gray-500">Nudge Types</h3>
               {[
-                { key: 'breathing', label: 'Breathing Exercise (Stressed)' },
-                { key: 'stretch', label: 'Stretch Reminder (Fatigued)' },
+                { key: 'breathing', label: 'Breathing Exercise (Stressed after 60s)' },
+                { key: 'stretch', label: 'Stretch Reminder (Tired after 90s)' },
                 { key: 'hydration', label: 'Hydration Reminder (90m Focus)' },
                 { key: 'encouragement', label: 'Encouragement Messages' },
-                { key: 'refocus', label: 'Refocus Prompts (Distracted)' },
               ].map(item => (
                 <label key={item.key} className="flex items-center justify-between py-2 cursor-pointer group">
                   <span className="text-sm group-hover:text-fa-brand transition-colors">{item.label}</span>
@@ -306,43 +311,22 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
 
       {/* Hydration Reminder */}
       {showHydration && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-[#1e1e2f] border border-blue-500/30 text-blue-100 px-6 py-3 rounded-full shadow-lg flex items-center gap-3 animate-fade-in">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-blue-50 border border-blue-200 text-blue-800 px-6 py-3 rounded-full shadow-sm flex items-center gap-3 animate-fade-in">
           <span>💧</span>
           <span className="text-sm font-medium">You've been focused for 90 mins — water break?</span>
           <button onClick={() => setShowHydration(false)} className="ml-4 text-xs bg-blue-500/20 hover:bg-blue-500/40 px-3 py-1 rounded transition-colors">Dismiss</button>
         </div>
       )}
 
-      {/* Distracted State */}
-      {currentState === 'distracted' && settings.refocus && !isDismissed && settings.style !== 'Silent' && (
-        <>
-          {/* Vignette effect */}
-          <div className="fixed inset-0 pointer-events-none z-30" style={{ boxShadow: 'inset 0 0 100px rgba(0,0,0,0.6)' }}></div>
-
-          <div className="fixed bottom-16 right-4 z-40 bg-fa-bg-page border border-fa-state-distracted/40 rounded-lg p-4 shadow-2xl animate-slide-up max-w-sm">
-            <p className="text-fa-text-primary text-sm mb-3">
-              Hey — you were working on <span className="font-semibold text-fa-brand">{currentTask}</span>. Want to refocus?
-            </p>
-            <button
-              onClick={() => setIsDismissed(true)}
-              className="w-full bg-fa-state-distracted/20 hover:bg-fa-state-distracted/30 text-fa-state-distracted border border-fa-state-distracted/50 rounded py-1.5 text-sm transition-colors"
-            >
-              I'm back
-            </button>
-          </div>
-        </>
-      )}
-
       {/* Stressed State */}
-      {currentState === 'stressed' && settings.breathing && !isDismissed && settings.style !== 'Silent' && (
+      {activeNudge === 'breathing' && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-fa-bg-page border border-fa-state-stressed/30 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center relative overflow-hidden">
-            <button onClick={() => setIsDismissed(true)} className="absolute top-4 right-4 text-fa-text-muted hover:text-white">&times;</button>
+          <div className="bg-[#FFFDF4] border border-red-200 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center relative overflow-hidden">
+            <button onClick={() => { setIsDismissed(true); setActiveNudge(null); }} className="absolute top-4 right-4 text-fa-text-muted hover:text-white">&times;</button>
 
             <h3 className="text-xl font-bold text-fa-state-stressed mb-2">Take a moment</h3>
             <p className="text-fa-text-secondary text-sm mb-8">Breathe in (4s), Hold (7s), Breathe out (8s)</p>
 
-            {/* 4-7-8 Breathing Animation */}
             <div className="relative w-32 h-32 mx-auto mb-8 flex items-center justify-center">
               <div className="absolute w-full h-full rounded-full border-4 border-fa-state-stressed/20"></div>
               <div
@@ -350,24 +334,24 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
                 style={{
                   width: '100%',
                   height: '100%',
-                  animation: 'breathe 19s infinite ease-in-out' // 4 + 7 + 8 = 19s
+                  animation: 'breathe 19s infinite ease-in-out'
                 }}
               ></div>
               <style dangerouslySetInnerHTML={{
                 __html: `
                 @keyframes breathe {
                   0% { transform: scale(0.3); opacity: 0.5; }
-                  21% { transform: scale(1); opacity: 0.8; } /* Inhale 4s (4/19 = 21%) */
-                  58% { transform: scale(1); opacity: 0.8; } /* Hold 7s (11/19 = 58%) */
-                  100% { transform: scale(0.3); opacity: 0.5; } /* Exhale 8s */
+                  21% { transform: scale(1); opacity: 0.8; }
+                  58% { transform: scale(1); opacity: 0.8; }
+                  100% { transform: scale(0.3); opacity: 0.5; }
                 }
               `}} />
               <span className="relative text-fa-state-stressed font-medium">Breathe</span>
             </div>
 
             {settings.encouragement && encouragementMessage && (
-              <div className="bg-fa-bg-hover p-4 rounded-lg">
-                <p className="text-fa-text-primary text-sm italic">"{encouragementMessage}"</p>
+              <div className="bg-white p-4 rounded-lg border border-[#E8D5A3]">
+                <p className="text-[#1A1A2E] text-sm italic">"{encouragementMessage}"</p>
               </div>
             )}
           </div>
@@ -375,15 +359,15 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
       )}
 
       {/* Fatigued State */}
-      {currentState === 'fatigued' && settings.stretch && !isDismissed && settings.style !== 'Silent' && (
-        <div className="fixed bottom-16 right-4 z-40 bg-fa-bg-page border border-fa-state-fatigued/40 rounded-lg p-4 shadow-2xl animate-slide-up max-w-sm w-full">
+      {activeNudge === 'stretch' && (
+        <div className="fixed bottom-16 right-4 z-40 bg-[#FFFDF4] border border-orange-200 rounded-lg p-4 shadow-2xl animate-slide-up max-w-sm w-full">
           <div className="flex justify-between items-start mb-2">
             <h3 className="text-fa-state-fatigued font-semibold">Time for a break?</h3>
-            <button onClick={() => setIsDismissed(true)} className="text-fa-text-muted hover:text-white">&times;</button>
+            <button onClick={() => { setIsDismissed(true); setActiveNudge(null); }} className="text-fa-text-muted hover:text-white">&times;</button>
           </div>
-          <p className="text-fa-text-secondary text-sm mb-4">You seem fatigued. Let's do a quick desk stretch.</p>
+          <p className="text-fa-text-secondary text-sm mb-4">You seem tired. Let's do a quick desk stretch.</p>
 
-          <div className="bg-black/50 rounded mb-4 overflow-hidden flex items-center justify-center border border-fa-border h-32">
+          <div className="bg-white rounded mb-4 overflow-hidden flex items-center justify-center border border-[#E8D5A3] h-32">
             <img
               src="https://placehold.co/400x200/2a2a35/a3a3c2?text=Neck+Stretch+GIF"
               alt="Stretch reminder"
@@ -392,7 +376,7 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
           </div>
 
           <button
-            onClick={() => setIsDismissed(true)}
+            onClick={() => { setIsDismissed(true); setActiveNudge(null); }}
             className="w-full bg-fa-state-fatigued/20 hover:bg-fa-state-fatigued/30 text-fa-state-fatigued border border-fa-state-fatigued/50 rounded py-1.5 text-sm transition-colors"
           >
             I stretched!
@@ -402,11 +386,13 @@ export default function AdaptiveNudgeSystem({ currentState = 'focused', currentT
 
       {/* Away State */}
       {stableState === 'away' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md animate-fade-in">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-bounce">👋</div>
-            <h2 className="text-3xl font-bold text-white mb-2">Session paused</h2>
-            <p className="text-fa-text-secondary text-lg">Welcome back. The timer has been paused.</p>
+            <h2 className="text-3xl font-bold text-[#1A1A2E] mb-2">Session paused</h2>
+            <p className="text-gray-600 text-lg">
+              {activeNudge === 'away_return' ? "You've been gone for a bit. Need a hand returning?" : "Welcome back. The timer has been paused."}
+            </p>
           </div>
         </div>
       )}

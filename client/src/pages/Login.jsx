@@ -16,9 +16,12 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+      const res = await axios.post('http://localhost:5000/api/auth/login', { email, password }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
         navigate('/dashboard');
       }
     } catch (err) {
@@ -74,6 +77,11 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+            </div>
+            <div className="mt-2 text-right">
+              <Link to="/forgot-password" className="text-sm font-medium text-fa-brand hover:text-fa-brand/80 transition-colors">
+                Forgot password?
+              </Link>
             </div>
           </div>
 

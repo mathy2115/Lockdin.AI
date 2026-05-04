@@ -48,13 +48,13 @@ const TaskManager = ({ onFocusTask }) => {
   const activeTasks = tasks.filter(t => t.status === 'todo' || t.status === 'inprogress');
 
   return (
-    <div className="flex flex-col bg-[#1A2236] border border-white/5 rounded-2xl p-6 shadow-xl w-full">
+    <div className="flex flex-col bg-[#FFFDF4] border border-[#E8D5A3] rounded-2xl p-6 shadow-xl w-full">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-bold text-lg text-white flex items-center gap-2">
-          <Layout size={20} className="text-fa-brand" />
+        <h3 className="font-bold text-lg text-[#1A1A2E] flex items-center gap-2">
+          <Layout size={20} className="text-[#6C63FF]" />
           Your Tasks
         </h3>
-        <span className="text-[10px] font-black bg-fa-brand/10 text-fa-brand px-2.5 py-1 rounded-full uppercase tracking-widest">
+        <span className="text-[10px] font-black bg-[#6C63FF]/10 text-[#6C63FF] px-2.5 py-1 rounded-full uppercase tracking-widest">
           {activeTasks.length} Active
         </span>
       </div>
@@ -67,11 +67,11 @@ const TaskManager = ({ onFocusTask }) => {
         `}} />
         
         {activeTasks.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-2xl text-fa-text-muted">
-            <div className="p-3 bg-white/5 rounded-full mb-3">
+          <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-[#E8D5A3] rounded-2xl text-gray-500">
+            <div className="p-3 bg-gray-100 rounded-full mb-3">
               <Check size={24} />
             </div>
-            <p className="font-bold text-sm">No tasks yet.</p>
+            <p className="font-bold text-sm text-[#1A1A2E]">No tasks yet.</p>
             <p className="text-xs mt-1 text-center">Add tasks in Academic Hub.</p>
           </div>
         ) : (
@@ -81,38 +81,38 @@ const TaskManager = ({ onFocusTask }) => {
             return (
               <div 
                 key={task.id} 
-                className={`group relative bg-[#0A0E1A] border border-white/5 rounded-xl p-4 transition-all flex items-center gap-4 ${
-                  isCompleting ? 'opacity-50 border-emerald-500/30 bg-emerald-500/5' : 'hover:border-fa-brand/50 hover:bg-fa-brand/[0.02]'
+                className={`group relative bg-[#FFFFFF] border border-[#E8D5A3] rounded-xl p-4 transition-all flex items-center gap-4 ${
+                  isCompleting ? 'opacity-50 border-emerald-500/30 bg-emerald-50/50' : 'hover:border-[#6C63FF]/50 hover:bg-[#6C63FF]/[0.02]'
                 }`}
               >
                 <button 
                   onClick={() => !isCompleting && toggleComplete(task.id)}
                   className={`flex-shrink-0 transition-colors ${
-                    isCompleting ? 'text-emerald-500' : 'text-fa-text-muted hover:text-emerald-500'
+                    isCompleting ? 'text-emerald-500' : 'text-[#D1D5DB] hover:text-emerald-500'
                   }`}
                 >
-                  {isCompleting ? <CheckCircle2 size={18} fill="currentColor" className="text-emerald-500" /> : <Circle size={18} />}
+                  {isCompleting ? <CheckCircle2 size={18} fill="currentColor" className="text-emerald-500" /> : <Circle size={18} fill="white" />}
                 </button>
                 
                 <div className="flex-1 min-w-0">
                   <div className={`flex items-center gap-1.5 flex-wrap transition-all ${isCompleting ? 'line-through decoration-emerald-500/50' : ''}`}>
-                    <span className="text-[10px] font-bold text-fa-brand uppercase tracking-wider">
+                    <span className="text-[10px] font-bold text-[#6C63FF] uppercase tracking-wider">
                       {task.subject || 'General'}
                     </span>
-                    <ChevronRight size={10} className="text-fa-text-muted" />
-                    <span className={`text-[10px] font-bold text-white uppercase tracking-wider ${isCompleting ? 'text-gray-500' : ''}`}>
+                    <ChevronRight size={10} className="text-gray-400" />
+                    <span className={`text-[10px] font-bold text-[#1A1A2E] uppercase tracking-wider ${isCompleting ? 'text-gray-500' : ''}`}>
                       {task.topic || task.title}
                     </span>
                     {task.subTopic && (
                       <>
-                        <ChevronRight size={10} className="text-fa-text-muted" />
-                        <span className={`text-[10px] font-medium text-fa-text-secondary truncate max-w-[150px] ${isCompleting ? 'text-gray-600' : ''}`}>
+                        <ChevronRight size={10} className="text-gray-400" />
+                        <span className={`text-[10px] font-medium text-[#1A1A2E] truncate max-w-[150px] ${isCompleting ? 'text-gray-600' : ''}`}>
                           {task.subTopic}
                         </span>
                       </>
                     )}
                     {task.status === 'inprogress' && !isCompleting && (
-                      <span className="ml-2 text-[8px] font-black bg-blue-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
+                      <span className="ml-2 text-[8px] font-black bg-[#DBEAFE] text-[#1D4ED8] px-1.5 py-0.5 rounded uppercase tracking-widest animate-pulse">
                         In Progress
                       </span>
                     )}
@@ -122,7 +122,7 @@ const TaskManager = ({ onFocusTask }) => {
                 <button 
                   onClick={() => onFocusTask(task.topic || task.title)}
                   disabled={isCompleting}
-                  className={`bg-fa-brand/10 hover:bg-fa-brand text-fa-brand hover:text-white p-2 rounded-lg transition-all shadow-lg hover:shadow-fa-brand/20 group/focus ${
+                  className={`bg-[#6C63FF]/10 hover:bg-[#6C63FF] text-[#6C63FF] hover:text-white p-2 rounded-lg transition-all shadow-sm hover:shadow-[#6C63FF]/20 group/focus ${
                     isCompleting ? 'opacity-20 pointer-events-none' : ''
                   }`}
                   title="Focus on this task"

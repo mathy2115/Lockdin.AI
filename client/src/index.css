@@ -3,24 +3,73 @@
 @tailwind utilities;
 
 :root {
-  --fa-bg-page: #0A0E1A;
-  --fa-bg-shell: #111827;
-  --fa-bg-card: #1A2236;
-  --fa-bg-hover: #232D45;
-  --fa-brand: #6C8EFF;
-  --fa-text-primary: #F0F4FF;
-  --fa-text-secondary: #8892AA;
-  --fa-text-muted: #4A5568;
-  --fa-border: rgba(255, 255, 255, 0.07);
-  --fa-state-focused: #4FC3F7;
+  /* Redesigned light mode palette */
+  --fa-bg-page: #FFF8E7;
+  --fa-bg-shell: #FFF8E7;
+  --fa-bg-card: #FFFDF4;
+  --fa-bg-hover: #FEF3C7;
+  
+  --fa-brand: #00C896;
+  --fa-brand-secondary: #7C6FFF;
+  --fa-brand-coral: #FF6B6B;
+  --fa-brand-amber: #FFB347;
+
+  /* Adjusted text colors for light mode */
+  --fa-text-primary: #1A2236;
+  --fa-text-secondary: #4A5568;
+  --fa-text-muted: #8892AA;
+  
+  --fa-border: rgba(0, 0, 0, 0.05);
+
+  --fa-state-focused: #00C896;
   --fa-state-distracted: #FFB347;
-  --fa-state-stressed: #FF8FAB;
-  --fa-state-fatigued: #B39DDB;
-  --fa-state-away: #78909C;
+  --fa-state-stressed: #FF6B6B;
+  --fa-state-fatigued: #7C6FFF;
+  --fa-state-away: #8892AA;
 }
 
 body {
   background-color: var(--fa-bg-page);
   font-family: 'Plus Jakarta Sans', sans-serif;
   color: var(--fa-text-primary);
+  transition: background-color 0.3s ease;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Sora', sans-serif;
+  font-weight: 600;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(79, 70, 229, 0); }
+}
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Base utility for 3D card depth */
+.card-depth {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.card-glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 40px rgba(0,0,0,0.08);
 }

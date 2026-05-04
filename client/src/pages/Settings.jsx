@@ -13,7 +13,7 @@ const Switch = ({ checked, onChange }) => (
       checked ? 'bg-[#4FC3F7]' : 'bg-[#1A2236] border border-white/10'
     }`}
   >
-    <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform duration-300 ${
+    <div className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-[#FFFEF7] transition-transform duration-300 ${
       checked ? 'translate-x-5' : 'translate-x-0'
     }`} />
   </button>
@@ -84,10 +84,10 @@ const Settings = () => {
   ];
 
   return (
-    <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif] text-white">
-      <header className="pb-6 mb-6 border-b border-white/5">
+    <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif] text-[#1A1A2E]">
+      <header className="pb-6 mb-6 border-b border-[#E8D5A3]">
         <h2 className="text-2xl font-['JetBrains_Mono',monospace] font-bold">Settings</h2>
-        <p className="text-gray-400 mt-1 text-sm">Manage your account preferences and app configurations.</p>
+        <p className="text-gray-500 mt-1 text-sm">Manage your account preferences and app configurations.</p>
       </header>
 
       <div className="flex-1 flex flex-col lg:flex-row gap-8 min-h-0 overflow-hidden">
@@ -99,11 +99,11 @@ const Settings = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all text-sm font-semibold ${
                 activeTab === tab.id 
-                  ? 'bg-[#1A2236] text-[#4FC3F7] shadow-lg border border-[#4FC3F7]/20' 
-                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  ? 'bg-[#FEF3C7] text-[#92400E] shadow-sm border border-[#E8D5A3]' 
+                  : 'text-gray-500 hover:bg-[#FEF3C7]/50 hover:text-[#92400E]'
               }`}
             >
-              <span className={activeTab === tab.id ? 'text-[#4FC3F7]' : 'text-gray-500'}>{tab.icon}</span>
+              <span className={activeTab === tab.id ? 'text-[#92400E]' : 'text-gray-500'}>{tab.icon}</span>
               {tab.label}
             </button>
           ))}
@@ -111,7 +111,7 @@ const Settings = () => {
           <div className="mt-auto pt-8">
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all text-sm font-semibold text-gray-400 hover:bg-white/5 hover:text-white border border-transparent hover:border-white/10"
+              className="flex items-center gap-3 w-full px-4 py-3 rounded-xl transition-all text-sm font-semibold text-gray-500 hover:bg-[#FEF3C7]/50 hover:text-[#92400E] border border-transparent hover:border-[#E8D5A3]"
             >
               <LogOut size={18} className="text-gray-500" />
               Logout
@@ -120,15 +120,15 @@ const Settings = () => {
         </div>
 
         {/* CONTENT AREA */}
-        <div className="flex-1 bg-[#0D1117] border border-white/5 rounded-2xl p-8 overflow-y-auto custom-scrollbar shadow-xl relative">
+        <div className="flex-1 bg-[#FFFDF4] border border-[#E8D5A3] rounded-2xl p-8 overflow-y-auto custom-scrollbar shadow-[0_2px_12px_rgba(0,0,0,0.06)] relative">
           
           {/* PROFILE SECTION */}
           {activeTab === 'profile' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Profile Settings</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Profile Settings</h3>
               
               <div className="flex items-center gap-6">
-                <div className="w-24 h-24 rounded-2xl bg-[#1A2236] border border-white/10 flex items-center justify-center text-gray-500 relative overflow-hidden group">
+                <div className="w-24 h-24 rounded-2xl bg-[#FFF8E7] border border-[#E8D5A3] flex items-center justify-center text-gray-500 relative overflow-hidden group">
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -140,7 +140,7 @@ const Settings = () => {
                   </label>
                 </div>
                 <div>
-                  <label className="px-4 py-2 bg-[#1A2236] hover:bg-white/10 border border-white/10 rounded-lg text-sm font-bold transition-colors cursor-pointer inline-block">
+                  <label className="px-4 py-2 bg-[#FFF8E7] hover:bg-white border border-[#E8D5A3] text-[#1A1A2E] rounded-lg text-sm font-bold transition-colors cursor-pointer inline-block">
                     Upload Avatar
                     <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
                   </label>
@@ -150,31 +150,31 @@ const Settings = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Full Name</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Full Name</label>
                   <input 
                     type="text" value={localSettings.profile.name} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, name: e.target.value}})}
-                    className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                    className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] focus:border-[#92400E] rounded-xl px-4 py-3 text-sm outline-none transition-colors shadow-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">University / School</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">University / School</label>
                   <input 
                     type="text" value={localSettings.profile.uni} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, uni: e.target.value}})} placeholder="e.g. MIT"
-                    className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                    className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] focus:border-[#92400E] rounded-xl px-4 py-3 text-sm outline-none transition-colors shadow-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Course / Major</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Course / Major</label>
                   <input 
                     type="text" value={localSettings.profile.course} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, course: e.target.value}})} placeholder="e.g. Computer Science"
-                    className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors"
+                    className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] focus:border-[#92400E] rounded-xl px-4 py-3 text-sm outline-none transition-colors shadow-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Year of Study</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Year of Study</label>
                   <select 
                     value={localSettings.profile.year} onChange={e => setLocalSettings({...localSettings, profile: {...localSettings.profile, year: e.target.value}})}
-                    className="w-full bg-[#1A2236] border border-white/5 focus:border-[#4FC3F7]/50 rounded-xl px-4 py-3 text-sm outline-none transition-colors appearance-none"
+                    className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] focus:border-[#92400E] rounded-xl px-4 py-3 text-sm outline-none transition-colors shadow-sm appearance-none"
                   >
                     {[1,2,3,4,5,'Graduate'].map(y => <option key={y} value={y}>Year {y}</option>)}
                   </select>
@@ -196,17 +196,17 @@ const Settings = () => {
           {/* FOCUS & CAMERA SECTION */}
           {activeTab === 'focus' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Focus & Camera</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Focus & Camera</h3>
               
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-sm font-bold text-white mb-4">Pomodoro Defaults</h4>
+                  <h4 className="text-sm font-bold text-[#1A1A2E] mb-4">Pomodoro Defaults</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Default Mode</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Default Mode</label>
                       <select 
                         value={localSettings.focus.mode} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, mode: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
+                        className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none shadow-sm"
                       >
                         <option>Classic (25/5)</option>
                         <option>Deep Work (50/10)</option>
@@ -214,32 +214,32 @@ const Settings = () => {
                       </select>
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Work (min)</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Work (min)</label>
                       <input 
                         type="number" value={localSettings.focus.work} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, work: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
+                        className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none shadow-sm"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Break (min)</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Break (min)</label>
                       <input 
                         type="number" value={localSettings.focus.break} onChange={e => setLocalSettings({...localSettings, focus: {...localSettings.focus, break: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none"
+                        className="w-full bg-[#FFF8E7] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none shadow-sm"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-4 bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5">
+                  <div className="space-y-4 bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3]">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-bold text-white">Auto-start Breaks</p>
+                        <p className="text-sm font-bold text-[#1A1A2E]">Auto-start Breaks</p>
                         <p className="text-xs text-gray-500 mt-1">Automatically start the break timer when work finishes.</p>
                       </div>
                       <Switch checked={localSettings.focus.autoStart} onChange={v => setLocalSettings({...localSettings, focus: {...localSettings.focus, autoStart: v}})} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-bold text-white">Session-end Sound</p>
+                        <p className="text-sm font-bold text-[#1A1A2E]">Session-end Sound</p>
                         <p className="text-xs text-gray-500 mt-1">Play a chime when a session completes.</p>
                       </div>
                       <Switch checked={localSettings.focus.sound} onChange={v => setLocalSettings({...localSettings, focus: {...localSettings.focus, sound: v}})} />
@@ -248,20 +248,20 @@ const Settings = () => {
                 </div>
 
                 <div className="pt-4">
-                  <h4 className="text-sm font-bold text-white mb-2">Presence Detection (AI Camera)</h4>
+                  <h4 className="text-sm font-bold text-[#1A1A2E] mb-2">Presence Detection (AI Camera)</h4>
                   <p className="text-xs text-gray-500 mb-6 max-w-lg leading-relaxed">
                     Set the debounce duration—the amount of time the camera must detect you are away before the session is automatically paused. 
                   </p>
                   
-                  <div className="bg-[#1A2236]/30 p-6 rounded-2xl border border-white/5">
+                  <div className="bg-[#FFF8E7] p-6 rounded-2xl border border-[#E8D5A3]">
                     <div className="flex items-center gap-6 mb-2">
                       <input 
                         type="range" min="3" max="60" step="1"
                         value={localSettings.focus.debounce}
                         onChange={(e) => setLocalSettings({...localSettings, focus: {...localSettings.focus, debounce: parseInt(e.target.value)}})}
-                        className="flex-1 accent-[#B39DDB] h-2 bg-[#1A2236] rounded-lg appearance-none cursor-pointer"
+                        className="flex-1 accent-[#92400E] h-2 bg-[#E8D5A3] rounded-lg appearance-none cursor-pointer"
                       />
-                      <div className="w-16 h-10 bg-[#1A2236] border border-white/10 rounded-lg flex items-center justify-center font-bold text-[#B39DDB]">
+                      <div className="w-16 h-10 bg-white border border-[#E8D5A3] rounded-lg flex items-center justify-center font-bold text-[#92400E]">
                         {localSettings.focus.debounce}s
                       </div>
                     </div>
@@ -289,12 +289,12 @@ const Settings = () => {
           {/* NOTIFICATIONS SECTION */}
           {activeTab === 'notifications' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Notifications</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Notifications</h3>
               
               <div className="space-y-4">
-                <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white">Browser Notifications</p>
+                    <p className="text-sm font-bold text-[#1A1A2E]">Browser Notifications</p>
                     <p className="text-xs text-gray-500 mt-1">Allow Lockdin.AI to send push notifications.</p>
                   </div>
                   <Switch checked={localSettings.notifications.browser} onChange={v => {
@@ -303,25 +303,25 @@ const Settings = () => {
                   }} />
                 </div>
                 
-                <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white">Session Alerts</p>
+                    <p className="text-sm font-bold text-[#1A1A2E]">Session Alerts</p>
                     <p className="text-xs text-gray-500 mt-1">Get notified when a work or break block ends.</p>
                   </div>
                   <Switch checked={localSettings.notifications.session} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, session: v}})} />
                 </div>
 
-                <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white">Daily Reminders</p>
+                    <p className="text-sm font-bold text-[#1A1A2E]">Daily Reminders</p>
                     <p className="text-xs text-gray-500 mt-1">Morning nudge to plan your study day.</p>
                   </div>
                   <Switch checked={localSettings.notifications.daily} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, daily: v}})} />
                 </div>
 
-                <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
+                <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-bold text-white">Wellness Check-ins</p>
+                    <p className="text-sm font-bold text-[#1A1A2E]">Wellness Check-ins</p>
                     <p className="text-xs text-gray-500 mt-1">Prompts to log your mood after long sessions.</p>
                   </div>
                   <Switch checked={localSettings.notifications.wellness} onChange={v => setLocalSettings({...localSettings, notifications: {...localSettings.notifications, wellness: v}})} />
@@ -338,31 +338,31 @@ const Settings = () => {
           {/* ACADEMIC SECTION */}
           {activeTab === 'academic' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Academic Preferences</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Academic Preferences</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-white">Semester Configuration</h4>
-                  <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 space-y-4">
+                  <h4 className="text-sm font-bold text-[#1A1A2E]">Semester Configuration</h4>
+                  <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] space-y-4">
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Start Date</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Start Date</label>
                       <input 
                         type="date" value={localSettings.academic.start} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, start: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none [color-scheme:dark]"
+                        className="w-full bg-[#FFFDF4] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">End Date</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">End Date</label>
                       <input 
                         type="date" value={localSettings.academic.end} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, end: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none [color-scheme:dark]"
+                        className="w-full bg-[#FFFDF4] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none"
                       />
                     </div>
                     <div className="space-y-2 pt-2">
-                      <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">GPA Scale</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">GPA Scale</label>
                       <select 
                         value={localSettings.academic.gpa} onChange={e => setLocalSettings({...localSettings, academic: {...localSettings.academic, gpa: e.target.value}})}
-                        className="w-full bg-[#1A2236] border border-white/5 rounded-xl px-4 py-3 text-sm outline-none appearance-none"
+                        className="w-full bg-[#FFFDF4] border border-[#E8D5A3] text-[#1A1A2E] rounded-xl px-4 py-3 text-sm outline-none appearance-none"
                       >
                         <option value="4.0">4.0 Scale</option>
                         <option value="10.0">10.0 Scale</option>
@@ -372,15 +372,15 @@ const Settings = () => {
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-white">Active Subjects</h4>
-                  <div className="bg-[#1A2236]/30 p-5 rounded-2xl border border-white/5 flex flex-col h-full">
+                  <h4 className="text-sm font-bold text-[#1A1A2E]">Active Subjects</h4>
+                  <div className="bg-[#FFF8E7] p-5 rounded-2xl border border-[#E8D5A3] flex flex-col h-full">
                     <div className="space-y-2 mb-4 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
                       {localSettings.academic.subjects.map((sub, idx) => (
-                        <div key={idx} className="flex items-center justify-between bg-[#1A2236] p-3 rounded-lg border border-white/5">
+                        <div key={idx} className="flex items-center justify-between bg-[#FFFDF4] p-3 rounded-lg border border-[#E8D5A3] text-[#1A1A2E]">
                           <span className="text-sm">{sub}</span>
                           <button 
                             onClick={() => setLocalSettings({...localSettings, academic: {...localSettings.academic, subjects: localSettings.academic.subjects.filter((_, i) => i !== idx)}})}
-                            className="text-gray-500 hover:text-red-400 transition-colors"
+                            className="text-gray-500 hover:text-red-500 transition-colors"
                           >
                             <X size={16} />
                           </button>
@@ -393,7 +393,7 @@ const Settings = () => {
                       <input 
                         type="text" value={newSubject} onChange={e => setNewSubject(e.target.value)}
                         placeholder="Add a subject..."
-                        className="flex-1 bg-[#1A2236] border border-white/5 rounded-lg px-3 py-2 text-sm outline-none"
+                        className="flex-1 bg-[#FFFDF4] border border-[#E8D5A3] text-[#1A1A2E] rounded-lg px-3 py-2 text-sm outline-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && newSubject.trim()) {
                             setLocalSettings({...localSettings, academic: {...localSettings.academic, subjects: [...localSettings.academic.subjects, newSubject.trim()]}});
@@ -408,7 +408,7 @@ const Settings = () => {
                             setNewSubject('');
                           }
                         }}
-                        className="bg-[#4FC3F7]/20 text-[#4FC3F7] p-2 rounded-lg hover:bg-[#4FC3F7]/30 transition-colors"
+                        className="bg-[#FEF3C7] text-[#92400E] border border-[#E8D5A3] p-2 rounded-lg hover:bg-[#FDE68A] transition-colors"
                       >
                         <Plus size={20} />
                       </button>
@@ -427,19 +427,19 @@ const Settings = () => {
           {/* APPEARANCE SECTION */}
           {activeTab === 'appearance' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Appearance</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Appearance</h3>
               
               <div className="space-y-8">
                 <div>
-                  <h4 className="text-sm font-bold text-white mb-4">Theme Mode</h4>
+                  <h4 className="text-sm font-bold text-[#1A1A2E] mb-4">Theme Mode</h4>
                   <div className="flex gap-4">
                     <button 
                       onClick={() => setLocalSettings({...localSettings, appearance: {...localSettings.appearance, theme: 'dark'}})}
                       className={`flex-1 py-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${
-                        localSettings.appearance.theme === 'dark' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30 hover:bg-[#1A2236]'
+                        localSettings.appearance.theme === 'dark' ? 'border-[#92400E] bg-[#FEF3C7]' : 'border-[#E8D5A3] bg-[#FFF8E7] hover:bg-[#FFFDF4]'
                       }`}
                     >
-                      <div className="w-12 h-12 rounded-full bg-[#0D1117] border border-white/10 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-[#1A2236] border border-[#E8D5A3] flex items-center justify-center">
                         {localSettings.appearance.theme === 'dark' && <Check size={18} className="text-[#4FC3F7]" />}
                       </div>
                       <span className="font-bold text-sm">Deep Dark</span>
@@ -447,10 +447,10 @@ const Settings = () => {
                     <button 
                       onClick={() => setLocalSettings({...localSettings, appearance: {...localSettings.appearance, theme: 'light'}})}
                       className={`flex-1 py-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 opacity-50 cursor-not-allowed ${
-                        localSettings.appearance.theme === 'light' ? 'border-[#4FC3F7] bg-[#4FC3F7]/5' : 'border-white/5 bg-[#1A2236]/30'
+                        localSettings.appearance.theme === 'light' ? 'border-[#92400E] bg-[#FEF3C7]' : 'border-[#E8D5A3] bg-[#FFF8E7]'
                       }`}
                     >
-                      <div className="w-12 h-12 rounded-full bg-white border border-gray-200 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-[#FFFEF7] border border-gray-200 flex items-center justify-center">
                         {localSettings.appearance.theme === 'light' && <Check size={18} className="text-[#4FC3F7]" />}
                       </div>
                       <span className="font-bold text-sm">Light Mode <span className="text-[10px] bg-white/10 px-2 py-0.5 rounded-full ml-1 font-normal">Coming Soon</span></span>
@@ -459,7 +459,7 @@ const Settings = () => {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-bold text-white mb-4">Accent Color</h4>
+                  <h4 className="text-sm font-bold text-[#1A1A2E] mb-4">Accent Color</h4>
                   <div className="flex gap-4">
                     {[
                       { color: '#4FC3F7', name: 'Electric Blue' },
@@ -493,38 +493,38 @@ const Settings = () => {
           {/* ACCOUNT SECTION */}
           {activeTab === 'account' && (
             <div className="space-y-8 animate-in fade-in duration-300">
-              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-white/5 pb-4">Account Management</h3>
+              <h3 className="font-['JetBrains_Mono',monospace] text-xl font-bold border-b border-[#E8D5A3] pb-4 text-[#1A1A2E]">Account Management</h3>
               
               <div className="space-y-8">
                 {/* Export Data */}
-                <div className="bg-[#1A2236]/30 p-6 rounded-2xl border border-white/5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="bg-[#FFF8E7] p-6 rounded-2xl border border-[#E8D5A3] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-bold text-white mb-1">Export Data</h4>
+                    <h4 className="text-sm font-bold text-[#1A1A2E] mb-1">Export Data</h4>
                     <p className="text-xs text-gray-500">Download all your Lockdin.AI data (sessions, tasks, wellness logs) as a CSV file.</p>
                   </div>
                   <button 
                     onClick={handleExportData}
-                    className="shrink-0 px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 font-bold text-sm transition-all flex items-center gap-2"
+                    className="shrink-0 px-5 py-2.5 bg-white hover:bg-gray-50 text-[#1A1A2E] rounded-xl border border-[#E8D5A3] font-bold text-sm transition-all flex items-center gap-2"
                   >
                     <Download size={16} /> Export My Data
                   </button>
                 </div>
 
                 {/* Danger Zone */}
-                <div className="border border-red-500/30 bg-red-500/5 p-6 rounded-2xl">
-                  <h4 className="text-sm font-bold text-red-400 mb-1 flex items-center gap-2">
+                <div className="border border-red-200 bg-red-50 p-6 rounded-2xl">
+                  <h4 className="text-sm font-bold text-red-600 mb-1 flex items-center gap-2">
                     <AlertTriangle size={16} /> Danger Zone
                   </h4>
-                  <p className="text-xs text-red-400/70 mb-6">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                  <p className="text-xs text-red-500 mb-6">Permanently delete your account and all associated data. This action cannot be undone.</p>
                   
                   <div className="space-y-4">
-                    <p className="text-xs text-gray-400">Type <strong className="text-white select-none">delete my account</strong> below to confirm.</p>
+                    <p className="text-xs text-gray-500">Type <strong className="text-[#1A1A2E] select-none">delete my account</strong> below to confirm.</p>
                     <div className="flex flex-col md:flex-row gap-4">
                       <input 
                         type="text" 
                         value={deleteConfirm} 
                         onChange={e => setDeleteConfirm(e.target.value)}
-                        className="flex-1 bg-black/40 border border-red-500/30 focus:border-red-500 rounded-xl px-4 py-2.5 text-sm text-white outline-none"
+                        className="flex-1 bg-white border border-red-300 focus:border-red-500 rounded-xl px-4 py-2.5 text-sm text-[#1A1A2E] outline-none shadow-sm"
                         placeholder="delete my account"
                       />
                       <button 

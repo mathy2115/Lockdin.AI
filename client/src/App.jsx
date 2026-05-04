@@ -12,17 +12,18 @@ import Wellness from './pages/Wellness';
 import Onboarding from './pages/Onboarding';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import Landing from './pages/Landing';
 import Settings from './pages/Settings';
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import { useSettings } from './hooks/useSettings';
 import { useEffect } from 'react';
 
 function App() {
   const { settings } = useSettings();
+  const isAuthenticated = !!localStorage.getItem('token');
 
   useEffect(() => {
-    if (settings && settings.appearance) {
+    if (settings?.appearance) {
       document.documentElement.style.setProperty('--fa-brand', settings.appearance.accent);
       if (settings.appearance.theme === 'light') {
         document.body.classList.add('light-theme');
@@ -40,24 +41,30 @@ function App() {
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
-            
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+
             {/* Protected Routes */}
-            <Route path="/" element={localStorage.getItem('token') ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} />
-            <Route path="/dashboard" element={localStorage.getItem('token') ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
-            <Route path="/planner" element={localStorage.getItem('token') ? <Layout><AcademicPlanner /></Layout> : <Navigate to="/login" />} />
-            <Route path="/focus" element={localStorage.getItem('token') ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
-            <Route path="/wellness" element={localStorage.getItem('token') ? <Layout><Wellness /></Layout> : <Navigate to="/login" />} />
-            <Route path="/onboarding" element={localStorage.getItem('token') ? <Onboarding /> : <Navigate to="/login" />} />
-            <Route path="/settings" element={localStorage.getItem('token') ? <Layout><Settings /></Layout> : <Navigate to="/login" />} />
-            
+            <Route path="/" element={<Navigate to={isAuthenticated ? '/dashboard' : '/login'} />} />
+            <Route path="/dashboard" element={isAuthenticated ? <Layout><Dashboard /></Layout> : <Navigate to="/login" />} />
+            <Route path="/planner" element={isAuthenticated ? <Layout><AcademicPlanner /></Layout> : <Navigate to="/login" />} />
+            <Route path="/focus" element={isAuthenticated ? <Layout><FocusSession /></Layout> : <Navigate to="/login" />} />
+            <Route path="/wellness" element={isAuthenticated ? <Layout><Wellness /></Layout> : <Navigate to="/login" />} />
+            <Route path="/settings" element={isAuthenticated ? <Layout><Settings /></Layout> : <Navigate to="/login" />} />
+            <Route path="/onboarding" element={isAuthenticated ? <Onboarding /> : <Navigate to="/login" />} />
+
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
-          {localStorage.getItem('token') && <PomodoroMiniWidget />}
+
+          {/* PomodoroMiniWidget is global — shows on all pages except /focus */}
+          {isAuthenticated && <PomodoroMiniWidget />}
+
+          {/* CameraMode and AdaptiveNudgeSystem live ONLY inside FocusSession — not here */}
         </BrowserRouter>
       </TimerProvider>
     </AIProvider>
   );
 }
 
-export default App;
+export default App;

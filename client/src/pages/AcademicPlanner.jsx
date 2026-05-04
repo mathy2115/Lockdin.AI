@@ -34,6 +34,15 @@ import {
 import { useSettings } from '../hooks/useSettings';
 const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY;
 
+// Helper for subject colors
+const getSubjectColor = (subject) => {
+  const colors = ['#6C63FF', '#FFB347', '#00C896', '#FF6B6B', '#3B82F6', '#8B5CF6', '#EC4899'];
+  if (!subject) return colors[0];
+  let hash = 0;
+  for (let i = 0; i < subject.length; i++) hash = subject.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+};
+
 // === STYLED COMPONENTS ===
 
 const TaskCard = ({ task, index, onDelete }) => {
@@ -44,42 +53,43 @@ const TaskCard = ({ task, index, onDelete }) => {
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
-          className={`bg-[#1A2236] border border-white/10 rounded-xl p-4 mb-3 transition-all hover:border-fa-brand/50 shadow-sm ${snapshot.isDragging ? 'shadow-2xl shadow-fa-brand/20 border-fa-brand border-2' : ''
+          className={`bg-white border border-[#E5E7EB] border-l-[3px] rounded-xl p-4 mb-3 transition-all hover:shadow-md ${snapshot.isDragging ? 'shadow-2xl border-[#4F46E5] opacity-90' : ''
             }`}
+          style={{ borderLeftColor: getSubjectColor(task.subject) }}
         >
           <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-fa-brand bg-fa-brand/10 px-2 py-0.5 rounded w-fit uppercase tracking-wider">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded w-fit uppercase tracking-wider" style={{ color: getSubjectColor(task.subject), backgroundColor: `${getSubjectColor(task.subject)}1A` }}>
                   {task.subject || (task.type === 'revision' ? 'Revision' : 'Study')}
                 </span>
-                <ChevronRight size={10} className="text-fa-text-muted" />
-                <span className="text-[11px] font-bold text-white leading-tight">
+                <ChevronRight size={10} className="text-gray-400" />
+                <span className="text-[11px] font-bold text-[#1A1A2E] leading-tight">
                   {task.topic || task.title}
                 </span>
               </div>
             </div>
             <button
               onClick={() => onDelete(task.id)}
-              className="text-fa-text-muted hover:text-red-400 transition-colors p-1 hover:bg-red-500/10 rounded"
+              className="text-[#9CA3AF] hover:text-red-500 transition-colors p-1 hover:bg-red-50 rounded"
             >
               <Trash2 size={14} />
             </button>
           </div>
-          <div className="pl-3 border-l border-white/10 mt-1">
-            <p className="text-xs text-fa-text-secondary leading-relaxed line-clamp-3">
+          <div className="pl-3 border-l border-gray-100 mt-1">
+            <p className="text-xs text-[#1A1A2E] opacity-70 leading-relaxed line-clamp-3">
               {task.subTopic || task.description}
             </p>
           </div>
 
-          <div className="flex items-center justify-between mt-auto pt-2 border-t border-white/5">
+          <div className="flex items-center justify-between mt-auto pt-2 border-t border-gray-100">
             <div className="flex gap-2">
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${task.source === 'ai' ? 'bg-purple-500/20 text-purple-400' : 'bg-blue-500/20 text-blue-400'
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${task.source === 'ai' ? 'bg-[#EEF2FF] text-[#6C63FF]' : 'bg-gray-100 text-gray-600'
                 }`}>
                 {task.source === 'ai' ? 'AI Generated' : 'Manual'}
               </span>
               {task.date && (
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-white/5 text-fa-text-muted">
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-[#F3F4F6] text-[#6B7280]">
                   {format(parseISO(task.date), 'dd MMM')}
                 </span>
               )}
@@ -94,14 +104,14 @@ const TaskCard = ({ task, index, onDelete }) => {
 const Column = ({ id, title, tasks, onDeleteTask }) => {
   return (
     // FIX: removed overflow-hidden — it was clipping DnD hit detection
-    <div className="flex flex-col h-full bg-[#0d1117] rounded-xl border border-white/5 min-h-[500px]">
-      <div className="p-4 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+    <div className="flex flex-col h-full bg-white rounded-2xl border border-[#E5E7EB] shadow-sm min-h-[500px]">
+      <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between bg-white rounded-t-2xl">
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${id === 'todo' ? 'bg-amber-400' : id === 'inprogress' ? 'bg-blue-400' : 'bg-green-400'
+          <div className={`w-2 h-2 rounded-full ${id === 'todo' ? 'bg-[#FFB347]' : id === 'inprogress' ? 'bg-[#3B82F6]' : 'bg-[#00C896]'
             }`}></div>
-          <h3 className="font-semibold text-white">{title}</h3>
+          <h3 className="font-semibold text-[#1A1A2E]">{title}</h3>
         </div>
-        <span className="text-xs font-bold text-fa-text-muted bg-white/5 px-2 py-1 rounded-full">
+        <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
           {tasks.length}
         </span>
       </div>
@@ -111,7 +121,7 @@ const Column = ({ id, title, tasks, onDeleteTask }) => {
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors ${snapshot.isDraggingOver ? 'bg-fa-brand/5' : ''
+            className={`flex-1 p-3 overflow-y-auto custom-scrollbar transition-colors ${snapshot.isDraggingOver ? 'bg-gray-50' : ''
               }`}
           >
             {tasks.map((task, index) => (
@@ -119,7 +129,7 @@ const Column = ({ id, title, tasks, onDeleteTask }) => {
             ))}
             {provided.placeholder}
             {tasks.length === 0 && !snapshot.isDraggingOver && (
-              <div className="h-32 border-2 border-dashed border-white/10 rounded-xl flex items-center justify-center text-sm text-fa-text-muted">
+              <div className="h-32 border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-sm text-gray-400">
                 No tasks here
               </div>
             )}
@@ -374,24 +384,24 @@ const AcademicPlanner = () => {
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       {/* HEADER */}
-      <header className="flex items-center justify-between pb-6 border-b border-fa-border mb-6 flex-shrink-0">
+      <header className="flex items-center justify-between pb-6 border-b border-[#E5E7EB] mb-6 flex-shrink-0">
         <div className="flex items-center gap-6">
           <div>
-            <h2 className="text-2xl font-['Sora'] font-bold text-white">Academic Hub</h2>
-            <p className="text-fa-text-secondary mt-1 text-sm">Syllabus-driven Planner & Study Schedule.</p>
+            <h2 className="text-2xl font-['Sora'] font-bold text-[#1A1A2E]">Academic Hub</h2>
+            <p className="text-gray-500 mt-1 text-sm">Syllabus-driven Planner & Study Schedule.</p>
           </div>
 
-          <div className="flex bg-fa-bg-shell rounded-xl p-1 border border-fa-border ml-4">
+          <div className="flex bg-gray-100 rounded-xl p-1 border border-gray-200 ml-4">
             <button
               onClick={() => setActiveView('kanban')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'kanban' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'kanban' ? 'bg-white text-[#1A1A2E] shadow-sm' : 'text-gray-500 hover:text-[#1A1A2E]'
                 }`}
             >
               <Layout size={16} /> Kanban
             </button>
             <button
               onClick={() => setActiveView('calendar')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'calendar' ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary hover:text-white'
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeView === 'calendar' ? 'bg-white text-[#1A1A2E] shadow-sm' : 'text-gray-500 hover:text-[#1A1A2E]'
                 }`}
             >
               <CalendarIcon size={16} /> Calendar
@@ -402,14 +412,14 @@ const AcademicPlanner = () => {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="flex items-center gap-2 bg-fa-bg-shell hover:bg-fa-bg-hover text-white px-4 py-2 rounded-lg font-semibold transition-colors border border-fa-border shadow-sm"
+            className="flex items-center gap-2 bg-white text-[#4F46E5] hover:bg-[#EEF2FF] px-4 py-2 rounded-lg font-semibold transition-colors border border-[#4F46E5] shadow-sm"
           >
             {isUploading ? <Loader2 size={18} className="animate-spin" /> : <UploadCloud size={18} />}
             {isUploading ? 'Reading PDF...' : 'Upload Syllabus'}
           </button>
           <button
             onClick={() => setIsManualModalOpen(true)}
-            className="flex items-center gap-2 bg-fa-brand hover:bg-fa-brand/90 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-fa-brand/20"
+            className="flex items-center gap-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-lg shadow-[#4F46E5]/20"
           >
             <Plus size={18} /> Add Task
           </button>
@@ -434,29 +444,29 @@ const AcademicPlanner = () => {
             </div>
           </DragDropContext>
         ) : (
-          <div className="h-full flex flex-col bg-[#0d1117] rounded-2xl border border-white/5 overflow-hidden">
+          <div className="h-full flex flex-col bg-white rounded-2xl border border-[#E5E7EB] shadow-sm overflow-hidden">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
+            <div className="flex items-center justify-between p-6 border-b border-[#E5E7EB] bg-white">
               <div className="flex items-center gap-4">
-                <h3 className="text-xl font-bold text-white min-w-[150px]">
+                <h3 className="text-xl font-bold text-[#1A1A2E] min-w-[150px]">
                   {format(currentCalendarDate, 'MMMM yyyy')}
                 </h3>
-                <div className="flex items-center bg-black/40 rounded-lg p-1 border border-white/10">
+                <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-200">
                   <button
                     onClick={() => setCurrentCalendarDate(subMonths(currentCalendarDate, 1))}
-                    className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors"
+                    className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors"
                   >
                     <ChevronLeft size={20} />
                   </button>
                   <button
                     onClick={() => setCurrentCalendarDate(new Date())}
-                    className="px-3 py-1 text-xs font-bold text-white hover:bg-white/10 rounded-md transition-colors border-x border-white/5 mx-1"
+                    className="px-3 py-1 text-xs font-bold text-[#1A1A2E] hover:bg-gray-200 rounded-md transition-colors border-x border-gray-200 mx-1"
                   >
                     Today
                   </button>
                   <button
                     onClick={() => setCurrentCalendarDate(addMonths(currentCalendarDate, 1))}
-                    className="p-1.5 hover:bg-white/10 rounded-md text-fa-text-secondary transition-colors"
+                    className="p-1.5 hover:bg-gray-200 rounded-md text-gray-500 transition-colors"
                   >
                     <ChevronRightIcon size={20} />
                   </button>
@@ -465,9 +475,9 @@ const AcademicPlanner = () => {
             </div>
 
             {/* Calendar Day Headers */}
-            <div className="grid grid-cols-7 border-b border-white/5 h-12 bg-white/[0.01]">
+            <div className="grid grid-cols-7 border-b border-[#E5E7EB] h-12 bg-gray-50">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-fa-text-muted">
+                <div key={day} className="flex items-center justify-center text-[10px] font-bold uppercase tracking-widest text-gray-500">
                   {day}
                 </div>
               ))}
@@ -488,11 +498,11 @@ const AcademicPlanner = () => {
                     <div
                       key={dayStr}
                       onClick={() => setSelectedDayTasks({ date: day, tasks: dayTasks, exams: userExams })}
-                      className={`min-h-[120px] border-r border-b border-white/5 p-2 transition-all hover:bg-white/[0.03] cursor-pointer group flex flex-col ${!isSameMonth(day, currentCalendarDate) ? 'opacity-30' : ''
+                      className={`min-h-[120px] border-r border-b border-[#E5E7EB] p-2 transition-all hover:bg-gray-50 cursor-pointer group flex flex-col ${!isSameMonth(day, currentCalendarDate) ? 'opacity-30 bg-gray-50/50' : 'bg-white'
                         }`}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <span className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${isToday(day) ? 'bg-fa-brand text-white shadow-lg' : 'text-fa-text-secondary group-hover:text-white'
+                        <span className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full transition-colors ${isToday(day) ? 'bg-[#4F46E5] text-white shadow-md' : 'text-gray-500 group-hover:text-[#1A1A2E]'
                           }`}>
                           {format(day, 'd')}
                         </span>
@@ -500,7 +510,7 @@ const AcademicPlanner = () => {
 
                       <div className="space-y-1 overflow-hidden">
                         {userExams.map((exam, i) => (
-                          <div key={i} className="bg-red-500/20 border border-red-500/30 text-red-400 text-[10px] font-bold px-1.5 py-0.5 rounded truncate flex items-center gap-1 shadow-sm">
+                          <div key={i} className="bg-red-50 border border-red-200 text-red-600 text-[10px] font-bold px-1.5 py-0.5 rounded truncate flex items-center gap-1 shadow-sm">
                             <Target size={10} /> {exam.subject}
                           </div>
                         ))}
@@ -509,10 +519,10 @@ const AcademicPlanner = () => {
                           <div
                             key={task.id}
                             className={`text-[9px] font-bold px-1.5 py-0.5 rounded truncate border transition-all ${task.status === 'done'
-                              ? 'bg-white/5 border-white/10 text-white/30 line-through'
+                              ? 'bg-gray-100 border-gray-200 text-gray-400 line-through'
                               : task.type === 'revision'
-                                ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                                : 'bg-fa-brand/20 border-fa-brand/30 text-fa-brand'
+                                ? 'bg-amber-50 border-amber-200 text-amber-600'
+                                : 'bg-indigo-50 border-indigo-200 text-indigo-600'
                               }`}
                           >
                             {task.subject || 'Study'} → {task.topic || task.title}
@@ -536,38 +546,38 @@ const AcademicPlanner = () => {
 
       {/* PLANNER ONBOARDING MODAL */}
       {plannerOnboarding && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
-          <div className="bg-[#1A1E2E] border border-fa-brand/30 rounded-3xl p-8 w-full max-w-xl shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in zoom-in-95 duration-200">
+          <div className="bg-white border border-[#E5E7EB] rounded-3xl p-8 w-full max-w-xl shadow-2xl overflow-y-auto max-h-[90vh] custom-scrollbar">
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-4">
-                <div className="p-3 bg-fa-brand/20 rounded-2xl">
-                  <CalendarIcon className="text-fa-brand" size={28} />
+                <div className="p-3 bg-[#EEF2FF] rounded-2xl">
+                  <CalendarIcon className="text-[#4F46E5]" size={28} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white">Setup Your Study Plan</h3>
-                  <p className="text-sm text-fa-text-secondary">Help AI customize your schedule</p>
+                  <h3 className="text-2xl font-bold text-[#1A1A2E]">Setup Your Study Plan</h3>
+                  <p className="text-sm text-gray-500">Help AI customize your schedule</p>
                 </div>
               </div>
-              <button onClick={() => setPlannerOnboarding(false)} className="text-fa-text-muted hover:text-white p-2">
+              <button onClick={() => setPlannerOnboarding(false)} className="text-gray-400 hover:text-red-500 p-2">
                 <X size={24} />
               </button>
             </div>
 
             <div className="space-y-6">
-              <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
-                <label className="block text-sm font-bold text-white mb-3">
+              <div className="bg-gray-50 p-5 rounded-2xl border border-[#E5E7EB]">
+                <label className="block text-sm font-bold text-[#1A1A2E] mb-3">
                   Review Syllabus Content
                 </label>
                 <textarea
                   value={extractedText}
                   onChange={(e) => setExtractedText(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-fa-brand outline-none resize-none h-32 custom-scrollbar"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-xl p-3 text-sm text-[#1A1A2E] focus:border-[#4F46E5] outline-none resize-none h-32 custom-scrollbar shadow-inner"
                 />
               </div>
 
-              <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
-                <label className="block text-sm font-bold text-white mb-3 flex items-center gap-2">
-                  <Clock size={16} className="text-fa-brand" />
+              <div className="bg-gray-50 p-5 rounded-2xl border border-[#E5E7EB]">
+                <label className="block text-sm font-bold text-[#1A1A2E] mb-3 flex items-center gap-2">
+                  <Clock size={16} className="text-[#4F46E5]" />
                   Daily Study Capacity
                 </label>
                 <div className="flex items-center gap-4">
@@ -575,17 +585,17 @@ const AcademicPlanner = () => {
                     type="range" min="1" max="12" step="1"
                     value={plannerConfig.studyHours}
                     onChange={(e) => setPlannerConfig({ ...plannerConfig, studyHours: parseInt(e.target.value) })}
-                    className="flex-1 accent-fa-brand h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                    className="flex-1 accent-[#4F46E5] h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                   />
-                  <span className="text-2xl font-black text-fa-brand min-w-[50px]">{plannerConfig.studyHours}h</span>
+                  <span className="text-2xl font-black text-[#4F46E5] min-w-[50px]">{plannerConfig.studyHours}h</span>
                 </div>
-                <p className="text-[10px] text-fa-text-muted mt-2 uppercase tracking-wider font-bold">Recommended: 4–6 hours for deep focus</p>
+                <p className="text-[10px] text-gray-500 mt-2 uppercase tracking-wider font-bold">Recommended: 4–6 hours for deep focus</p>
               </div>
 
-              <div className="bg-white/[0.03] p-5 rounded-2xl border border-white/5">
+              <div className="bg-gray-50 p-5 rounded-2xl border border-[#E5E7EB]">
                 <div className="flex justify-between items-center mb-4">
-                  <label className="block text-sm font-bold text-white flex items-center gap-2">
-                    <Target size={16} className="text-red-400" />
+                  <label className="block text-sm font-bold text-[#1A1A2E] flex items-center gap-2">
+                    <Target size={16} className="text-red-500" />
                     Upcoming Exam Dates
                   </label>
                   <button
@@ -593,7 +603,7 @@ const AcademicPlanner = () => {
                       ...plannerConfig,
                       examDates: [...plannerConfig.examDates, { subject: '', date: '' }]
                     })}
-                    className="text-[10px] font-bold bg-white/5 hover:bg-white/10 text-white px-3 py-1 rounded-full border border-white/10 transition-colors uppercase tracking-widest"
+                    className="text-[10px] font-bold bg-[#EEF2FF] hover:bg-[#E0E7FF] text-[#4F46E5] px-3 py-1 rounded-full border border-[#4F46E5]/20 transition-colors uppercase tracking-widest"
                   >
                     + Add Exam
                   </button>
@@ -610,7 +620,7 @@ const AcademicPlanner = () => {
                           newExams[idx].subject = e.target.value;
                           setPlannerConfig({ ...plannerConfig, examDates: newExams });
                         }}
-                        className="col-span-6 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-fa-brand outline-none"
+                        className="col-span-6 bg-white border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#1A1A2E] focus:border-[#4F46E5] outline-none shadow-sm"
                       />
                       <input
                         type="date"
@@ -620,21 +630,21 @@ const AcademicPlanner = () => {
                           newExams[idx].date = e.target.value;
                           setPlannerConfig({ ...plannerConfig, examDates: newExams });
                         }}
-                        className="col-span-5 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:border-fa-brand outline-none [color-scheme:dark]"
+                        className="col-span-5 bg-white border border-[#E5E7EB] rounded-xl px-3 py-2 text-sm text-[#1A1A2E] focus:border-[#4F46E5] outline-none shadow-sm"
                       />
                       <button
                         onClick={() => {
                           const newExams = plannerConfig.examDates.filter((_, i) => i !== idx);
                           setPlannerConfig({ ...plannerConfig, examDates: newExams });
                         }}
-                        className="col-span-1 flex items-center justify-center text-fa-text-muted hover:text-red-400"
+                        className="col-span-1 flex items-center justify-center text-gray-400 hover:text-red-500"
                       >
                         <X size={16} />
                       </button>
                     </div>
                   ))}
                   {plannerConfig.examDates.length === 0 && (
-                    <div className="text-center py-4 border-2 border-dashed border-white/5 rounded-xl text-xs text-fa-text-muted italic">
+                    <div className="text-center py-4 border-2 border-dashed border-[#E5E7EB] rounded-xl text-xs text-gray-500 italic">
                       No exams added yet
                     </div>
                   )}
@@ -658,14 +668,14 @@ const AcademicPlanner = () => {
             <div className="mt-8 flex gap-4">
               <button
                 onClick={() => setPlannerOnboarding(false)}
-                className="flex-1 py-4 border border-white/10 text-white rounded-2xl font-bold hover:bg-white/5 transition-all text-sm uppercase tracking-widest"
+                className="flex-1 py-4 border border-[#E5E7EB] text-gray-500 rounded-2xl font-bold hover:bg-gray-50 transition-all text-sm uppercase tracking-widest"
               >
                 Cancel
               </button>
               <button
                 onClick={handleGenerateStudyPlan}
                 disabled={isAiProcessing}
-                className="flex-[2] py-4 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-2xl shadow-fa-brand/40 text-sm uppercase tracking-widest"
+                className="flex-[2] py-4 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-2xl font-black transition-all flex items-center justify-center gap-3 shadow-2xl shadow-[#4F46E5]/40 text-sm uppercase tracking-widest"
               >
                 {isAiProcessing ? <Loader2 size={20} className="animate-spin" /> : <Brain size={20} />}
                 {isAiProcessing ? 'Generating study plan with AI...' : 'Generate Study Plan'}
@@ -677,17 +687,17 @@ const AcademicPlanner = () => {
 
       {/* DAY DETAIL MODAL */}
       {selectedDayTasks && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-end animate-in fade-in duration-200" onClick={() => setSelectedDayTasks(null)}>
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110] flex items-center justify-end animate-in fade-in duration-200" onClick={() => setSelectedDayTasks(null)}>
           <div
-            className="w-full max-w-md h-full bg-[#1A1E2E] border-l border-white/10 p-8 shadow-2xl animate-in slide-in-from-right duration-300"
+            className="w-full max-w-md h-full bg-white border-l border-[#E5E7EB] p-8 shadow-2xl animate-in slide-in-from-right duration-300"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-8">
               <div>
-                <h3 className="text-2xl font-black text-white">{format(selectedDayTasks.date, 'eeee')}</h3>
-                <p className="text-fa-brand font-bold uppercase tracking-widest text-xs mt-1">{format(selectedDayTasks.date, 'MMMM d, yyyy')}</p>
+                <h3 className="text-2xl font-black text-[#1A1A2E]">{format(selectedDayTasks.date, 'eeee')}</h3>
+                <p className="text-[#4F46E5] font-bold uppercase tracking-widest text-xs mt-1">{format(selectedDayTasks.date, 'MMMM d, yyyy')}</p>
               </div>
-              <button onClick={() => setSelectedDayTasks(null)} className="p-2 hover:bg-white/5 rounded-full text-fa-text-muted transition-colors">
+              <button onClick={() => setSelectedDayTasks(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors">
                 <X size={28} />
               </button>
             </div>
@@ -701,10 +711,10 @@ const AcademicPlanner = () => {
                   {selectedDayTasks.exams.map((exam, idx) => (
                     <div key={idx} className="bg-red-500/10 border border-red-500/20 p-4 rounded-2xl flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-red-500/20 rounded-xl">
-                          <Trophy size={20} className="text-red-400" />
+                        <div className="p-2 bg-red-100 rounded-xl">
+                          <Trophy size={20} className="text-red-500" />
                         </div>
-                        <span className="font-bold text-white text-lg">{exam.subject}</span>
+                        <span className="font-bold text-[#1A1A2E] text-lg">{exam.subject}</span>
                       </div>
                       <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase">Today</span>
                     </div>
@@ -717,8 +727,8 @@ const AcademicPlanner = () => {
                   <CheckCircle2 size={14} /> Scheduled Tasks
                 </h4>
                 {selectedDayTasks.tasks.length === 0 ? (
-                  <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-white/5 rounded-3xl text-fa-text-muted">
-                    <div className="p-4 bg-white/5 rounded-full mb-4">
+                  <div className="py-12 flex flex-col items-center justify-center border-2 border-dashed border-[#E5E7EB] rounded-3xl text-gray-500">
+                    <div className="p-4 bg-gray-100 rounded-full mb-4">
                       <CalendarIcon size={32} />
                     </div>
                     <p className="font-bold text-sm">No tasks scheduled for today</p>
@@ -727,38 +737,38 @@ const AcademicPlanner = () => {
                   selectedDayTasks.tasks.map((task) => (
                     <div
                       key={task.id}
-                      className={`p-5 rounded-2xl border transition-all hover:scale-[1.02] ${task.status === 'done' ? 'bg-white/[0.02] border-white/10 opacity-60' :
+                      className={`p-5 rounded-2xl border transition-all hover:scale-[1.02] bg-white shadow-sm ${task.status === 'done' ? 'border-[#E5E7EB] opacity-60' :
                         task.type === 'revision'
-                          ? 'bg-amber-500/5 border-amber-500/10'
-                          : 'bg-fa-brand/5 border-fa-brand/10'
+                          ? 'border-amber-200 bg-amber-50'
+                          : 'border-[#E5E7EB] border-l-4 border-l-[#4F46E5]'
                         }`}
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-2">
-                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${task.status === 'done' ? 'bg-green-500/20 text-green-400' :
-                              task.status === 'inprogress' ? 'bg-blue-500/20 text-blue-400' :
-                                'bg-white/10 text-fa-text-secondary'
+                            <span className={`text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${task.status === 'done' ? 'bg-green-100 text-green-600' :
+                              task.status === 'inprogress' ? 'bg-blue-100 text-blue-600' :
+                                'bg-gray-100 text-gray-500'
                               }`}>
                               {task.status || 'todo'}
                             </span>
-                            <span className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-white/5 text-fa-text-muted border border-white/5">
+                            <span className="text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest bg-gray-100 text-gray-500 border border-[#E5E7EB]">
                               {task.source === 'ai' ? 'AI-Generated' : 'Manual'}
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 text-fa-text-muted">
+                        <div className="flex items-center gap-1.5 text-gray-400">
                           <Clock size={12} />
                           <span className="text-xs font-bold">{task.estimatedHours || 1}h</span>
                         </div>
                       </div>
 
-                      <h5 className="text-white font-bold text-lg mb-1 leading-tight">{task.subject || 'Untitled Subject'}</h5>
-                      <p className="text-fa-brand text-sm font-bold mb-3">{task.topic || task.title}</p>
+                      <h5 className="text-[#1A1A2E] font-bold text-lg mb-1 leading-tight">{task.subject || 'Untitled Subject'}</h5>
+                      <p className="text-[#4F46E5] text-sm font-bold mb-3">{task.topic || task.title}</p>
 
                       {task.subTopic && (
-                        <div className="pl-3 border-l-2 border-white/5">
-                          <p className="text-xs text-fa-text-secondary leading-relaxed">{task.subTopic}</p>
+                        <div className="pl-3 border-l-2 border-[#E5E7EB]">
+                          <p className="text-xs text-gray-500 leading-relaxed">{task.subTopic}</p>
                         </div>
                       )}
                     </div>
@@ -769,7 +779,7 @@ const AcademicPlanner = () => {
 
             <button
               onClick={() => setSelectedDayTasks(null)}
-              className="w-full py-4 mt-8 bg-white/5 hover:bg-white/10 text-white font-bold rounded-2xl transition-all uppercase tracking-widest text-xs"
+              className="w-full py-4 mt-8 bg-gray-100 hover:bg-gray-200 text-[#1A1A2E] font-bold rounded-2xl transition-all uppercase tracking-widest text-xs"
             >
               Close Panel
             </button>
@@ -779,22 +789,22 @@ const AcademicPlanner = () => {
 
       {/* MANUAL TASK MODAL */}
       {isManualModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#161b22] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-white">Add Manual Task</h3>
-              <button onClick={() => setIsManualModalOpen(false)} className="text-fa-text-muted hover:text-white">
+              <h3 className="text-lg font-bold text-[#1A1A2E]">Add Manual Task</h3>
+              <button onClick={() => setIsManualModalOpen(false)} className="text-gray-400 hover:text-red-500">
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleAddManualTask} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-fa-text-secondary mb-1">Subject Name</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Subject Name</label>
                 <input
                   type="text" required list="subject-list"
                   value={manualForm.subject} onChange={e => setManualForm({ ...manualForm, subject: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-sm text-[#1A1A2E] focus:border-[#4F46E5] focus:outline-none shadow-sm"
                   placeholder="e.g. Mathematics"
                 />
                 <datalist id="subject-list">
@@ -803,35 +813,35 @@ const AcademicPlanner = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-fa-text-secondary mb-1">Topic</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Topic</label>
                 <input
                   type="text" required
                   value={manualForm.topic} onChange={e => setManualForm({ ...manualForm, topic: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-sm text-[#1A1A2E] focus:border-[#4F46E5] focus:outline-none shadow-sm"
                   placeholder="e.g. Calculus"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-fa-text-secondary mb-1">Sub Topic</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Sub Topic</label>
                 <input
                   type="text" required
                   value={manualForm.subTopic} onChange={e => setManualForm({ ...manualForm, subTopic: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-sm text-[#1A1A2E] focus:border-[#4F46E5] focus:outline-none shadow-sm"
                   placeholder="e.g. Integration by Parts"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-fa-text-secondary mb-1">Schedule Date (Optional)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Schedule Date (Optional)</label>
                 <input
                   type="date"
                   value={manualForm.date} onChange={e => setManualForm({ ...manualForm, date: e.target.value })}
-                  className="w-full bg-[#0d1117] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:border-fa-brand focus:outline-none [color-scheme:dark]"
+                  className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-2.5 text-sm text-[#1A1A2E] focus:border-[#4F46E5] focus:outline-none shadow-sm"
                 />
               </div>
 
-              <button type="submit" className="w-full py-3 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-xl font-bold mt-2 transition-colors shadow-lg shadow-fa-brand/20">
+              <button type="submit" className="w-full py-3 bg-[#4F46E5] hover:bg-[#4338CA] text-white rounded-xl font-bold mt-2 transition-colors shadow-lg shadow-[#4F46E5]/20">
                 Create Task
               </button>
             </form>
@@ -841,7 +851,7 @@ const AcademicPlanner = () => {
 
       {/* TOAST */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-fa-brand border border-white/20 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-[#4F46E5] border border-[#4338CA] text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
           <CheckCircle2 size={18} />
           <span className="font-semibold text-sm">{toast}</span>
         </div>

@@ -25,18 +25,18 @@ const Layout = ({ children }) => {
   ];
 
   return (
-    <div className="flex h-screen w-full bg-fa-bg-page overflow-hidden">
+    <div className="flex h-screen w-full bg-[#FFF8E7] overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Sidebar */}
-      <aside className="w-[220px] flex-shrink-0 bg-fa-bg-shell border-r border-fa-border flex flex-col">
+      <aside className="w-[240px] flex-shrink-0 bg-[#FFF8E7] border-r border-[#E8D5A3] flex flex-col z-10">
         {/* App Name */}
-        <div className="p-6">
-          <h1 className="font-['Sora'] text-2xl font-semibold text-fa-brand tracking-wide">
+        <div className="p-6 pb-2">
+          <h1 className="font-['Sora'] text-2xl font-bold text-[#00C896] tracking-tight">
             Lockdin.AI
           </h1>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-4 space-y-2 mt-4">
+        <nav className="flex-1 px-4 space-y-1.5 mt-6">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname.startsWith(item.path);
@@ -44,13 +44,16 @@ const Layout = ({ children }) => {
               <Link
                 key={item.name}
                 to={item.path}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                className={`w-full flex items-center space-x-3 px-4 py-3 transition-all duration-300 relative group ${
                   isActive 
-                    ? 'bg-fa-brand text-white shadow-lg shadow-fa-brand/20' 
-                    : 'text-fa-text-secondary hover:bg-fa-bg-hover hover:text-fa-text-primary'
+                    ? 'text-[#4F46E5] font-semibold bg-[#EEF2FF] rounded-r-xl' 
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50 rounded-r-xl'
                 }`}
               >
-                <Icon size={20} className={isActive ? 'text-white' : 'text-fa-text-secondary'} />
+                {isActive && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#4F46E5] rounded-r-md"></div>
+                )}
+                <Icon size={20} className={isActive ? 'text-[#4F46E5]' : 'text-gray-400 group-hover:text-gray-600'} />
                 <span className="font-medium">{item.name}</span>
               </Link>
             );
@@ -58,23 +61,25 @@ const Layout = ({ children }) => {
         </nav>
 
         {/* User Profile Info */}
-        <div className="p-4 border-t border-fa-border flex items-center gap-3 mt-auto">
-          <div className="w-10 h-10 rounded-full bg-fa-bg-page border border-fa-border flex items-center justify-center overflow-hidden flex-shrink-0">
-            {avatar ? (
-              <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-            ) : (
-              <User size={20} className="text-fa-text-secondary" />
-            )}
+        <div className="p-4 border border-[#E8D5A3] flex items-center gap-3 mt-auto bg-[#FFFDF4] hover:bg-white transition-colors cursor-pointer m-4 rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 duration-300">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#4F46E5] to-[#7C6FFF] p-[2px] flex-shrink-0">
+            <div className="w-full h-full bg-white rounded-full overflow-hidden flex items-center justify-center">
+              {avatar ? (
+                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User size={18} className="text-gray-400" />
+              )}
+            </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{settings.profile.name || 'Student'}</p>
-            <p className="text-xs text-fa-text-muted truncate">{settings.profile.uni || 'Lockdin.AI'}</p>
+            <p className="text-sm font-bold text-[#1A1A2E] truncate">{settings.profile.name || 'Student'}</p>
+            <p className="text-xs text-gray-500 truncate">{settings.profile.uni || 'Lockdin.AI'}</p>
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 h-full overflow-y-auto bg-fa-bg-page p-[24px]">
+      <main className="flex-1 h-full overflow-y-auto bg-[#FFF8E7] p-8">
         {children}
       </main>
     </div>

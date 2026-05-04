@@ -163,7 +163,7 @@ export default function Wellness() {
         <div className="w-20 h-20 bg-fa-brand/10 rounded-full flex items-center justify-center mb-2">
           <Brain size={40} className="text-fa-brand animate-pulse" />
         </div>
-        <h2 className="text-2xl font-bold text-white font-['Sora']">Your DNA is forming...</h2>
+        <h2 className="text-2xl font-bold text-[#1A1A2E] font-['Sora']">Your DNA is forming...</h2>
         <p className="text-fa-text-secondary max-w-sm">
           No data yet — complete a mood check-in and start a focus session to see your wellness insights.
         </p>
@@ -191,7 +191,7 @@ export default function Wellness() {
   return (
     <div className="p-6 space-y-6 animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl font-semibold text-white font-['Sora']">Wellness Dashboard</h1>
+        <h1 className="text-2xl font-semibold text-[#1A1A2E] font-['Sora']">Wellness Dashboard</h1>
         <p className="text-sm text-[var(--fa-text-secondary)] mt-1">Your 7-day focus and wellbeing overview</p>
       </div>
 
@@ -208,7 +208,7 @@ export default function Wellness() {
               <span style={{ color: stat.color }}>{stat.icon}</span>
               <p className="text-[10px] uppercase font-bold tracking-wider text-[var(--fa-text-secondary)]">{stat.label}</p>
             </div>
-            <p className="text-xl font-bold text-white mt-1">{stat.value}</p>
+            <p className="text-xl font-bold text-[#1A1A2E] mt-1">{stat.value}</p>
           </div>
         ))}
       </div>
@@ -218,7 +218,7 @@ export default function Wellness() {
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
             <AlertCircle size={16} className="text-fa-text-muted" />
-            <p className="text-sm font-medium text-white">Burnout Risk</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">Burnout Risk</p>
           </div>
           <span className="text-xs font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-white/5" style={{ color: safeStats.burnoutColor }}>
             {safeStats.burnoutLevel}
@@ -244,7 +244,7 @@ export default function Wellness() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Mood & Energy Chart */}
         <div className="bg-[var(--fa-bg-card)] rounded-xl p-5 border border-[var(--fa-border)]">
-          <p className="text-sm font-bold text-white mb-6 uppercase tracking-widest text-[10px]">Wellbeing Trends (7 Days)</p>
+          <p className="text-sm font-bold text-[#1A1A2E] mb-6 uppercase tracking-widest text-[10px]">Wellbeing Trends (7 Days)</p>
           <ResponsiveContainer width="100%" height={250}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
@@ -262,7 +262,7 @@ export default function Wellness() {
                 tickLine={false}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: '#1A2236', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
+                contentStyle={{ backgroundColor: '#FFFDF4', border: '1px solid #E8D5A3', borderRadius: '12px', fontSize: '12px', color: '#1A1A2E' }}
                 itemStyle={{ padding: '2px 0' }}
               />
               <Legend verticalAlign="top" align="right" height={36} iconType="circle" />
@@ -290,7 +290,7 @@ export default function Wellness() {
 
         {/* Focus Hours Chart */}
         <div className="bg-[var(--fa-bg-card)] rounded-xl p-5 border border-[var(--fa-border)]">
-          <p className="text-sm font-bold text-white mb-6 uppercase tracking-widest text-[10px]">Deep Work Hours (7 Days)</p>
+          <p className="text-sm font-bold text-[#1A1A2E] mb-6 uppercase tracking-widest text-[10px]">Deep Work Hours (7 Days)</p>
           <ResponsiveContainer width="100%" height={250}>
             <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.03)" vertical={false} />
@@ -308,7 +308,7 @@ export default function Wellness() {
               />
               <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                contentStyle={{ backgroundColor: '#1A2236', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
+                contentStyle={{ backgroundColor: '#FFFDF4', border: '1px solid #E8D5A3', borderRadius: '12px', fontSize: '12px', color: '#1A1A2E' }}
               />
               <Bar dataKey="hours" radius={[6, 6, 0, 0]} barSize={24}>
                 {chartData.map((entry, index) => (
@@ -321,34 +321,34 @@ export default function Wellness() {
       </div>
 
       {/* Focus DNA */}
-      <div className="bg-gradient-to-br from-[#1A1E2E] to-[#2D243F] rounded-2xl p-6 border border-purple-500/20 shadow-lg relative overflow-hidden group">
+      <div className="bg-gradient-to-br from-[#FFF8E7] to-[#FFFDF4] rounded-2xl p-6 border border-[#E8D5A3] shadow-lg relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-32 h-32 bg-fa-brand/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
         <div className="mb-6 relative z-10">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-[#1A1A2E] flex items-center gap-2">
             🧬 Focus DNA
           </h2>
-          <p className="text-sm text-purple-200/70 mt-1 font-medium">Your personalised productivity fingerprint based on recent data.</p>
+          <p className="text-sm text-purple-700/70 mt-1 font-medium">Your personalised productivity fingerprint based on recent data.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-          <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
-            <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Total Sessions</p>
-            <p className="text-sm font-medium text-white">You have completed <span className="text-purple-400 font-bold">{data.sessions ? data.sessions.length : 0}</span> focus sessions in total.</p>
+          <div className="bg-white/60 rounded-xl p-4 border border-[#E8D5A3] backdrop-blur-sm shadow-sm">
+            <p className="text-[10px] text-purple-600/80 uppercase tracking-wider font-bold mb-1">Total Sessions</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">You have completed <span className="text-purple-600 font-bold">{data.sessions ? data.sessions.length : 0}</span> focus sessions in total.</p>
           </div>
 
-          <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
-            <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Consistency</p>
-            <p className="text-sm font-medium text-white">You logged activity on <span className="text-blue-400 font-bold">{chartData ? chartData.filter(d => d.hours > 0).length : 0}</span> out of the last 7 days.</p>
+          <div className="bg-white/60 rounded-xl p-4 border border-[#E8D5A3] backdrop-blur-sm shadow-sm">
+            <p className="text-[10px] text-purple-600/80 uppercase tracking-wider font-bold mb-1">Consistency</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">You logged activity on <span className="text-blue-500 font-bold">{chartData ? chartData.filter(d => d.hours > 0).length : 0}</span> out of the last 7 days.</p>
           </div>
 
-          <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
-            <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Flow State</p>
-            <p className="text-sm font-medium text-white">Your average session duration is <span className="text-emerald-400 font-bold">{data.sessions && data.sessions.length > 0 ? (data.sessions.reduce((a, b) => a + b.duration, 0) / data.sessions.length / 60).toFixed(0) : 0} minutes</span>.</p>
+          <div className="bg-white/60 rounded-xl p-4 border border-[#E8D5A3] backdrop-blur-sm shadow-sm">
+            <p className="text-[10px] text-purple-600/80 uppercase tracking-wider font-bold mb-1">Flow State</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">Your average session duration is <span className="text-emerald-500 font-bold">{data.sessions && data.sessions.length > 0 ? (data.sessions.reduce((a, b) => a + b.duration, 0) / data.sessions.length / 60).toFixed(0) : 0} minutes</span>.</p>
           </div>
 
-          <div className="bg-black/20 rounded-xl p-4 border border-white/5 backdrop-blur-sm">
-            <p className="text-[10px] text-purple-300/60 uppercase tracking-wider font-bold mb-1">Mood Correlation</p>
-            <p className="text-sm font-medium text-white">Your energy is <span className="text-amber-400 font-bold">{Number(safeStats.avgEnergy) > Number(safeStats.avgMood) ? 'higher' : 'lower'}</span> than your mood on average.</p>
+          <div className="bg-white/60 rounded-xl p-4 border border-[#E8D5A3] backdrop-blur-sm shadow-sm">
+            <p className="text-[10px] text-purple-600/80 uppercase tracking-wider font-bold mb-1">Mood Correlation</p>
+            <p className="text-sm font-medium text-[#1A1A2E]">Your energy is <span className="text-amber-500 font-bold">{Number(safeStats.avgEnergy) > Number(safeStats.avgMood) ? 'higher' : 'lower'}</span> than your mood on average.</p>
           </div>
         </div>
       </div>

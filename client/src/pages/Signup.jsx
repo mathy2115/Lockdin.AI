@@ -14,11 +14,14 @@ const Signup = () => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    
+
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/signup', { email, password });
+      const res = await axios.post('http://localhost:5000/api/auth/signup', { email, password }, {
+        headers: { 'Content-Type': 'application/json' }
+      });
       if (res.data.token) {
         localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user));
         navigate('/onboarding');
       }
     } catch (err) {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PomodoroTimer from '../components/PomodoroTimer';
 import TaskManager from '../components/TaskManager';
 import MoodCheckIn from '../components/MoodCheckIn';
@@ -8,33 +8,57 @@ import { useAI } from '../context/AIContext';
 import { useTimer } from '../context/TimerContext';
 import { Loader2, Sparkles, X } from 'lucide-react';
 import { useSettings } from '../hooks/useSettings';
-import { useEffect } from 'react';
 
 const FocusSession = () => {
   const [activeTask, setActiveTask] = useState(null);
   const [showMoodModal, setShowMoodModal] = useState(false);
-  const { isRunning, changeMode, setCustomWork, setCustomBreak } = useTimer();
-  const { settings } = useSettings();
-
-  // Apply default settings on mount
-  useEffect(() => {
-    if (settings && settings.focus) {
-      if (settings.focus.mode) changeMode(settings.focus.mode);
-      if (settings.focus.work) setCustomWork(parseInt(settings.focus.work));
-      if (settings.focus.break) setCustomBreak(parseInt(settings.focus.break));
-    }
-  }, []); // Run only once on mount to set initial preferences
-  const [modalType, setModalType] = useState('before'); // 'before' or 'after'
+  const [modalType, setModalType] = useState('before');
   const [startTimerCallback, setStartTimerCallback] = useState(null);
   const [aiDebrief, setAiDebrief] = useState(null);
   const [isDebriefLoading, setIsDebriefLoading] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
-  
+
+  // Camera state — only 2 values: 'focused' | 'away'
+  const [cameraState, setCameraState] = useState('focused');
+  // isCameraActive gates the timer — only true after onCameraReady fires
+  const [isCameraActive, setIsCameraActive] = useState(false);
+
+  const { isRunning, pauseTimer, changeMode, setCustomWork, setCustomBreak } = useTimer();
+  const { settings } = useSettings();
   const { getSessionBreakdown, resetSessionBreakdown } = useAI();
 
-  // Camera state
-  const [cameraState, setCameraState] = useState('focused');
-  const [isCameraActive, setIsCameraActive] = useState(false);
+  // Apply saved settings once on mount
+  useEffect(() => {
+    if (settings?.focus) {
+      if (settings.focus.mode) changeMode(settings.focus.mode);
+      if (settings.focus.work) setCustomWork(parseInt(settings.focus.work));
+      if (settings.focus.break) setCustomBreak(parseInt(settings.focus.break));
+    }
+  }, []);
+
+  // ─── Camera callbacks ─────────────────────────────────────────────
+
+  // Fires once after both face-api AND MediaPipe Pose finish loading
+  // This is the only thing that unblocks the Start Session button
+  const handleCameraReady = () => {
+    setIsCameraActive(true);
+  };
+
+  // Fires on every state change from CameraMode: 'focused' | 'away'
+  const handleStateChange = (state) => {
+    setCameraState(state);
+  };
+
+  // Fires when presence changes: true = person present, false = away
+  // Pauses timer if user leaves mid-session
+  const handlePresenceChange = (isPresent) => {
+    if (!isPresent && isRunning) {
+      console.log('[FocusSession] User away — pausing timer');
+      pauseTimer();
+    }
+  };
+
+  // ─── Timer / Session flow ─────────────────────────────────────────
 
   const handleStartTimer = (startCallback) => {
     setModalType('before');
@@ -46,8 +70,7 @@ const FocusSession = () => {
   const handleSessionComplete = (durationInSeconds) => {
     const duration = durationInSeconds || 0;
     setSessionDuration(duration);
-    
-    // Save to localStorage for Dashboard
+
     const sessions = JSON.parse(localStorage.getItem('focusSessions') || '[]');
     sessions.push({
       date: new Date().toISOString().split('T')[0],
@@ -64,7 +87,7 @@ const FocusSession = () => {
 
   const handleMoodSubmit = async (moodData) => {
     setShowMoodModal(false);
-    
+
     if (modalType === 'before') {
       if (startTimerCallback) {
         startTimerCallback(moodData.recommendation);
@@ -73,7 +96,7 @@ const FocusSession = () => {
     } else if (modalType === 'after') {
       setIsDebriefLoading(true);
       const breakdown = getSessionBreakdown();
-      
+
       try {
         const response = await fetch('http://localhost:5000/api/ai/coach', {
           method: 'POST',
@@ -84,9 +107,9 @@ const FocusSession = () => {
             focusScore: 8,
             moodBefore: 5,
             moodAfter: moodData?.mood || 7,
-            states: { 
-              focused: breakdown.focused_pct || 80, 
-              distracted: breakdown.distracted_pct || 10, 
+            states: {
+              focused: breakdown.focused_pct || 80,
+              distracted: breakdown.distracted_pct || 10,
               stressed: breakdown.stressed_pct || 10,
               fatigued: breakdown.fatigued_pct || 0
             },
@@ -113,31 +136,36 @@ const FocusSession = () => {
     }
   };
 
+  // ─── Render ───────────────────────────────────────────────────────
   return (
     <div className="h-full flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       <header className="flex items-center justify-between pb-6 mb-6 border-b border-fa-border flex-shrink-0">
         <div>
-          <h2 className="text-2xl font-['Sora'] font-bold text-fa-text-primary">Focus Session</h2>
-          <p className="text-fa-text-secondary mt-1">AI-powered deep work session.</p>
+          <h2 className="text-2xl font-['Sora'] font-bold text-[#1A1A2E]">Focus Session</h2>
+          <p className="text-gray-500 mt-1">AI-powered deep work session.</p>
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-4 items-stretch">
         <div className="flex flex-col h-full">
-          <PomodoroTimer 
-            activeTask={activeTask} 
+          {/* cameraActive prop — timer is blocked until isCameraActive is true */}
+          <PomodoroTimer
+            activeTask={activeTask}
             cameraActive={isCameraActive}
-            onStart={handleStartTimer} 
-            onSessionComplete={handleSessionComplete} 
+            onStart={handleStartTimer}
+            onSessionComplete={handleSessionComplete}
           />
         </div>
-        
+
         <div className="flex flex-col h-full">
-          <CameraMode 
-            onStateChange={(state) => setCameraState(state)} 
-            onToggle={(isActive) => setIsCameraActive(isActive)}
+          <CameraMode
+            onStateChange={handleStateChange}
+            onPresenceChange={handlePresenceChange}
+            onCameraReady={handleCameraReady}
+            onToggle={(isActive) => {
+              if (!isActive) setIsCameraActive(false);
+            }}
             isSessionActive={isRunning}
-            debounce={settings.focus.debounce}
           />
         </div>
       </div>
@@ -147,34 +175,35 @@ const FocusSession = () => {
       </div>
 
       {showMoodModal && (
-        <MoodCheckIn 
-          type={modalType} 
-          onSubmit={handleMoodSubmit} 
-          onSkip={handleMoodSkip} 
+        <MoodCheckIn
+          type={modalType}
+          onSubmit={handleMoodSubmit}
+          onSkip={handleMoodSkip}
         />
       )}
 
-      <AdaptiveNudgeSystem 
-        currentState={cameraState} 
-        currentTask={activeTask || 'your task'} 
+      {/* Pass cameraState ('focused'|'away') to nudge system */}
+      <AdaptiveNudgeSystem
+        currentState={cameraState}
+        currentTask={activeTask || 'your task'}
       />
 
       {isDebriefLoading && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-[#1A2236] border border-fa-brand/30 rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
+          <div className="bg-[#FFFDF4] border border-[#E8D5A3] rounded-2xl p-8 flex flex-col items-center gap-4 shadow-2xl">
             <Loader2 size={40} className="text-fa-brand animate-spin" />
-            <p className="text-white font-medium">Analysing your session...</p>
+            <p className="text-[#1A1A2E] font-medium">Analysing your session...</p>
           </div>
         </div>
       )}
 
       {aiDebrief && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-gradient-to-b from-[#1A1E2E] to-[#2D243F] border border-fa-brand/30 rounded-[20px] p-8 w-full max-w-[500px] shadow-[0_0_50px_rgba(111,76,255,0.15)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
-            
-            <button 
+          <div className="bg-[#FFF8E7] border border-[#E8D5A3] rounded-[20px] p-8 w-full max-w-[500px] shadow-[0_0_50px_rgba(111,76,255,0.15)] animate-in zoom-in-95 duration-300 relative overflow-hidden">
+
+            <button
               onClick={() => setAiDebrief(null)}
-              className="absolute top-4 right-4 p-2 text-fa-text-muted hover:text-white bg-black/20 hover:bg-black/40 rounded-full transition-colors z-20"
+              className="absolute top-4 right-4 p-2 text-gray-500 hover:text-[#1A1A2E] bg-white/50 hover:bg-white rounded-full transition-colors z-20 border border-[#E8D5A3]"
             >
               <X size={18} />
             </button>
@@ -187,16 +216,16 @@ const FocusSession = () => {
               </div>
             )}
 
-            <div className="absolute top-0 right-0 w-40 h-40 bg-fa-brand/10 rounded-bl-full z-0 blur-xl"></div>
-            
+            <div className="absolute top-0 right-0 w-40 h-40 bg-fa-brand/10 rounded-bl-full z-0 blur-xl" />
+
             <div className="relative z-10 flex flex-col items-center text-center mt-4">
               <div className="w-16 h-16 rounded-full bg-fa-brand/20 flex items-center justify-center mb-6 border border-fa-brand/30 shadow-[0_0_15px_rgba(111,76,255,0.4)]">
                 <Sparkles size={32} className="text-fa-brand" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-6 font-['Sora']">Session Debrief</h2>
-              
-              <div className="bg-black/20 border border-white/5 rounded-xl p-6 mb-8 text-left w-full shadow-inner overflow-y-auto max-h-[300px] custom-scrollbar">
-                <p className="text-fa-text-primary text-sm leading-relaxed whitespace-pre-wrap">
+              <h2 className="text-2xl font-bold text-[#1A1A2E] mb-6 font-['Sora']">Session Debrief</h2>
+
+              <div className="bg-white/60 border border-[#E8D5A3] rounded-xl p-6 mb-8 text-left w-full shadow-sm overflow-y-auto max-h-[300px] custom-scrollbar">
+                <p className="text-[#1A1A2E] text-sm leading-relaxed whitespace-pre-wrap">
                   {aiDebrief}
                 </p>
               </div>

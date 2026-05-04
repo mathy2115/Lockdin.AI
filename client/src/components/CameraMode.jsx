@@ -1,289 +1,269 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Camera, CameraOff, Loader2 } from 'lucide-react';
 
-const TM_MODEL_URL = '/tm-model/';
+const FACE_API_MODEL_URL = '/weights';
 
-const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
-  const [hasConsent, setHasConsent] = useState(() => localStorage.getItem('camConsentGiven') === 'true');
+const CameraMode = ({ onStateChange, onToggle, onCameraReady, onPresenceChange, isSessionActive }) => {
   const [isActive, setIsActive] = useState(false);
   const [modelsLoaded, setModelsLoaded] = useState(false);
-
-  const [emotionData, setEmotionData] = useState({ label: 'neutral', confidence: 0 });
-  const [postureData, setPostureData] = useState({ label: 'Loading...', confidence: 0 });
-  const [currentState, setCurrentState] = useState('Focused');
+  const [loadingStatus, setLoadingStatus] = useState('');
+  const [displayState, setDisplayState] = useState('Focused');
+  const [emotion, setEmotion] = useState({ label: 'neutral', confidence: 0 });
 
   const videoRef = useRef(null);
-  const tmModelRef = useRef(null);
+  const canvasRef = useRef(null); // hidden canvas — face-api reads from this
+  const mpCameraRef = useRef(null);
+  const poseRef = useRef(null);
   const emotionIntervalRef = useRef(null);
-  const postureIntervalRef = useRef(null);
+  const awayTimerRef = useRef(null);
+  const isAwayRef = useRef(false);
+  const isActiveRef = useRef(false);
+  const modelsLoadedRef = useRef(false);
 
-  // Latest readings refs to avoid stale closures in setInterval
-  const latestEmotionRef = useRef({ label: 'neutral', confidence: 1 });
-  const latestPostureRef = useRef('Good Posture');
-  const noFaceDetectedRef = useRef(false);
-  const emotionBufferRef = useRef([]);
-  const faceMeshRef = useRef(null);
-  const latestLandmarksRef = useRef(null);
-  const consecutiveNeutralRef = useRef(0);
-
-  // 1. Initialize Models
+  // ─── Load face-api models ──────────────────────────────────────────
   const loadModels = async () => {
     try {
-      // Initialize MediaPipe Face Mesh
-      if (!faceMeshRef.current) {
-        const faceMesh = new window.FaceMesh({
-          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
-        });
-        faceMesh.setOptions({
-          maxNumFaces: 1,
-          refineLandmarks: true,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-        faceMesh.onResults((results) => {
-          if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-            latestLandmarksRef.current = results.multiFaceLandmarks[0];
-            noFaceDetectedRef.current = false;
-          } else {
-            latestLandmarksRef.current = null;
-            noFaceDetectedRef.current = true;
-          }
-        });
-        faceMeshRef.current = faceMesh;
-      }
-
-      // Load TM Pose model
-      if (!tmModelRef.current) {
-        if (!window.tmPose) {
-          console.error('Teachable Machine not loaded');
-          return;
-        }
-        const modelURL = TM_MODEL_URL + "model.json";
-        const metadataURL = TM_MODEL_URL + "metadata.json";
-        tmModelRef.current = await window.tmPose.load(modelURL, metadataURL);
-      }
-
+      setLoadingStatus('Loading face detection...');
+      await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_API_MODEL_URL);
+      setLoadingStatus('Loading expression model...');
+      await window.faceapi.nets.faceExpressionNet.loadFromUri(FACE_API_MODEL_URL);
+      modelsLoadedRef.current = true;
       setModelsLoaded(true);
+      console.log('[CameraMode] face-api models loaded');
     } catch (err) {
-      console.error("Failed to load AI models:", err);
+      console.error('[CameraMode] face-api load failed:', err);
+      setLoadingStatus('Face model load failed — check console');
     }
   };
 
-  // 2. Start Camera
+  // ─── State helpers ─────────────────────────────────────────────────
+  const updateState = useCallback((isAway) => {
+    const state = isAway ? 'Away' : 'Focused';
+    setDisplayState(state);
+    if (onStateChange) onStateChange(state.toLowerCase());
+    if (onPresenceChange) onPresenceChange(!isAway);
+  }, [onStateChange, onPresenceChange]);
+
+  const handleAwaySignal = useCallback((isAway) => {
+    if (isAway && !isAwayRef.current) {
+      if (!awayTimerRef.current) {
+        awayTimerRef.current = setTimeout(() => {
+          isAwayRef.current = true;
+          awayTimerRef.current = null;
+          updateState(true);
+        }, 3000);
+      }
+    } else if (!isAway) {
+      if (awayTimerRef.current) {
+        clearTimeout(awayTimerRef.current);
+        awayTimerRef.current = null;
+      }
+      if (isAwayRef.current) {
+        isAwayRef.current = false;
+        updateState(false);
+      }
+    }
+  }, [updateState]);
+
+  // ─── MediaPipe pose results ────────────────────────────────────────
+  const onPoseResults = useCallback((results) => {
+    if (!isActiveRef.current) return;
+    if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+      handleAwaySignal(true);
+      return;
+    }
+    const nose = results.poseLandmarks[0];
+    if (!nose || nose.visibility < 0.5) {
+      handleAwaySignal(true);
+      return;
+    }
+    handleAwaySignal(false);
+  }, [handleAwaySignal]);
+
+  // ─── Draw video frame to canvas, run face-api on canvas ───────────
+  // face-api works reliably on HTMLCanvasElement — avoids toNetInput errors
+  // that occur when video element isn't in a valid playable state
+  const captureFrameToCanvas = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return false;
+    if (video.readyState < 2 || video.videoWidth === 0) return false;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    return true;
+  };
+
+  // ─── Emotion detection loop ────────────────────────────────────────
+  const startEmotionLoop = useCallback(() => {
+    clearInterval(emotionIntervalRef.current);
+    emotionIntervalRef.current = setInterval(async () => {
+      if (!isActiveRef.current || !modelsLoadedRef.current) return;
+      if (!window.faceapi) return;
+
+      // Draw current video frame to canvas
+      const ok = captureFrameToCanvas();
+      if (!ok) return;
+
+      try {
+        const canvas = canvasRef.current;
+        const detection = await window.faceapi
+          .detectSingleFace(canvas, new window.faceapi.TinyFaceDetectorOptions())
+          .withFaceExpressions();
+
+        if (detection) {
+          const e = detection.expressions;
+          const mapped = {
+            happy: e.happy || 0,
+            sad: (e.sad || 0) + (e.fearful || 0) + (e.disgusted || 0),
+            angry: e.angry || 0,
+            surprised: e.surprised || 0,
+            neutral: e.neutral || 0,
+          };
+          const top = Object.entries(mapped).reduce((a, b) => b[1] > a[1] ? b : a);
+          setEmotion({ label: top[0], confidence: Math.round(top[1] * 100) });
+          console.log('[CameraMode] Emotion:', top[0], Math.round(top[1] * 100) + '%');
+        } else {
+          setEmotion({ label: 'neutral', confidence: 0 });
+          console.log('[CameraMode] No face detected');
+        }
+      } catch (err) {
+        console.error('[CameraMode] Detection error:', err);
+      }
+    }, 1500);
+  }, []);
+
+  // ─── Start camera ──────────────────────────────────────────────────
   const startCamera = async () => {
-    localStorage.setItem('camConsentGiven', 'true');
-    setHasConsent(true);
     setIsActive(true);
+    isActiveRef.current = true;
     if (onToggle) onToggle(true);
 
-    if (!modelsLoaded) {
-      await loadModels();
-    }
+    if (!modelsLoadedRef.current) await loadModels();
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        await new Promise(resolve => { videoRef.current.onloadedmetadata = resolve; });
+        await videoRef.current.play();
       }
+
+      // Init MediaPipe Pose
+      setLoadingStatus('Loading pose model...');
+      const pose = new window.Pose({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+      });
+      pose.setOptions({
+        modelComplexity: 0,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+      });
+      pose.onResults(onPoseResults);
+      await pose.initialize();
+      poseRef.current = pose;
+      console.log('[CameraMode] MediaPipe Pose initialized');
+
+      // MediaPipe Camera utility feeds frames to pose
+      const mpCamera = new window.Camera(videoRef.current, {
+        onFrame: async () => {
+          if (poseRef.current && isActiveRef.current) {
+            await poseRef.current.send({ image: videoRef.current });
+          }
+        },
+        width: 640,
+        height: 480
+      });
+      await mpCamera.start();
+      mpCameraRef.current = mpCamera;
+      console.log('[CameraMode] MediaPipe Camera utility started');
+
+      setLoadingStatus('');
+      startEmotionLoop();
+
+      if (onCameraReady) onCameraReady();
+      localStorage.setItem('camConsentGiven', 'true');
+
     } catch (err) {
-      console.error("Error accessing webcam:", err);
+      console.error('[CameraMode] Camera start failed:', err);
       setIsActive(false);
+      isActiveRef.current = false;
+      setLoadingStatus('');
+      if (onToggle) onToggle(false);
     }
   };
 
-  // 3. Stop Camera
+  // ─── Stop camera ───────────────────────────────────────────────────
   const stopCamera = () => {
-    if (isSessionActive) return; // Cannot stop mid-session
+    if (isSessionActive) return;
+    isActiveRef.current = false;
     setIsActive(false);
     if (onToggle) onToggle(false);
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+
+    if (mpCameraRef.current) { mpCameraRef.current.stop(); mpCameraRef.current = null; }
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
+
     clearInterval(emotionIntervalRef.current);
-    clearInterval(postureIntervalRef.current);
+    if (awayTimerRef.current) { clearTimeout(awayTimerRef.current); awayTimerRef.current = null; }
+    poseRef.current = null;
+    isAwayRef.current = false;
   };
 
-  // 4. Resolve State Logic
-  const resolveState = () => {
-    const emotionDataObj = latestEmotionRef.current;
-    const emotion = emotionDataObj.label ? emotionDataObj.label.toLowerCase() : 'neutral';
-    const confidence = emotionDataObj.confidence || 0;
-    
-    const posture = latestPostureRef.current; 
-    const noFace = noFaceDetectedRef.current;
-
-    let nextState = 'Focused';
-
-    if (posture === 'Away' || noFace) {
-      nextState = 'Away';
-    } else if (posture === 'Head in Hands') {
-      nextState = 'Stressed';
-    } else if (emotion === 'sad' && confidence > 0.35) {
-      nextState = 'Stressed';
-    } else if (emotion === 'angry' && confidence > 0.35) {
-      nextState = 'Stressed';
-    } else if (emotion === 'fearful' && confidence > 0.3) {
-      nextState = 'Fatigued';
-    } else if (emotion === 'disgusted' && confidence > 0.3) {
-      nextState = 'Fatigued';
-    } else if (emotion === 'surprised' && confidence > 0.35) {
-      nextState = 'Distracted';
-    } else if (emotion === 'happy' && confidence > 0.4) {
-      nextState = 'Focused';
-    } else if (emotion === 'neutral' && confidence > 0.5) {
-      nextState = 'Focused';
-    } else {
-      nextState = 'Focused';
-    }
-
-    setCurrentState(nextState);
-  };
-
-  useEffect(() => {
-    if (currentState && onStateChange) {
-      onStateChange(currentState.toLowerCase());
-    }
-  }, [currentState, onStateChange]);
-
-  // 5. Detection Loops
-  const handleVideoPlay = () => {
-    // Emotion Loop (600ms)
-    emotionIntervalRef.current = setInterval(async () => {
-      if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
-
-      if (faceMeshRef.current) {
-        await faceMeshRef.current.send({ image: videoRef.current });
-      }
-
-      const landmarks = latestLandmarksRef.current;
-      if (landmarks) {
-        noFaceDetectedRef.current = false;
-
-        // Heuristic Logic
-        const getDist = (p1, p2) => Math.sqrt((p1.x - p2.x)**2 + (p1.y - p2.y)**2);
-        const faceHeight = getDist(landmarks[10], landmarks[152]);
-        
-        const mouthOpenRatio = getDist(landmarks[13], landmarks[14]) / faceHeight;
-        const eyebrowRatio = getDist(landmarks[70], landmarks[159]) / faceHeight;
-        const mouthCenterY = (landmarks[61].y + landmarks[291].y) / 2;
-        const mouthCornerRatio = (landmarks[0].y - mouthCenterY) / faceHeight;
-
-        const mouthOpen = mouthOpenRatio > 0.08;
-        const smiling = mouthCornerRatio > 0.02;
-        const frowned = mouthCornerRatio < -0.02;
-
-        let detectedLabel = 'neutral';
-        if (mouthOpen && smiling) detectedLabel = 'happy';
-        else if (mouthOpen) detectedLabel = 'surprised';
-        else if (frowned) detectedLabel = 'sad';
-
-        const detectedConfidence = 0.8; // Constant for heuristic
-
-        // Rolling Buffer of last 5
-        const buffer = emotionBufferRef.current;
-        buffer.push(detectedLabel);
-        if (buffer.length > 5) buffer.shift();
-
-        let finalEmotion = detectedLabel;
-        if (buffer.length === 5) {
-          const counts = {};
-          buffer.forEach(e => counts[e] = (counts[e] || 0) + 1);
-          if (counts['neutral'] && counts['neutral'] >= 4) {
-             finalEmotion = 'neutral';
-          } else {
-             let maxCount = 0;
-             let mostFreq = finalEmotion;
-             Object.entries(counts).forEach(([emotion, count]) => {
-                if (emotion !== 'neutral' && count > maxCount) {
-                   maxCount = count;
-                   mostFreq = emotion;
-                }
-             });
-             if (maxCount > 0) finalEmotion = mostFreq;
-          }
-        }
-
-        latestEmotionRef.current = { label: finalEmotion, confidence: detectedConfidence };
-        setEmotionData({ label: finalEmotion, confidence: Math.round(detectedConfidence * 100) });
-      } else {
-        noFaceDetectedRef.current = true;
-        latestEmotionRef.current = { label: 'none', confidence: 0 };
-        emotionBufferRef.current = [];
-        consecutiveNeutralRef.current = 0;
-        setEmotionData({ label: 'none', confidence: 0 });
-      }
-      resolveState();
-    }, 600);
-
-    // Posture Loop (2.0s)
-    postureIntervalRef.current = setInterval(async () => {
-      if (!videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
-
-      const { posenetOutput } = await tmModelRef.current.estimatePose(videoRef.current);
-      const prediction = await tmModelRef.current.predict(posenetOutput);
-
-      if (prediction && prediction.length > 0) {
-        const highestPosture = prediction.reduce((prev, current) => (prev.probability > current.probability) ? prev : current);
-
-        let mappedLabel = highestPosture.className;
-        if (mappedLabel === "Class 1 - Good Posture") mappedLabel = 'Good Posture';
-        else if (mappedLabel === "Class 2 - Away from Screen") mappedLabel = 'Away';
-        else if (mappedLabel === "Class 3 - Head in Hands") mappedLabel = 'Head in Hands';
-
-        latestPostureRef.current = mappedLabel;
-        setPostureData({ label: mappedLabel, confidence: Math.round(highestPosture.probability * 100) });
-      }
-      resolveState();
-    }, 2000);
-  };
-
+  // ─── Cleanup ───────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
+      isActiveRef.current = false;
+      if (mpCameraRef.current) mpCameraRef.current.stop();
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(t => t.stop());
       }
       clearInterval(emotionIntervalRef.current);
-      clearInterval(postureIntervalRef.current);
+      if (awayTimerRef.current) clearTimeout(awayTimerRef.current);
     };
   }, []);
 
-  // UI Render Helpers
-  const getStateBadge = () => {
-    switch (currentState) {
-      case 'Focused': return <span className="bg-green-500/20 text-green-400 border border-green-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg"><span className="text-base">🎯</span> Focused</span>;
-      case 'Distracted': return <span className="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg"><span className="text-base">👀</span> Distracted</span>;
-      case 'Stressed': return <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg"><span className="text-base">😤</span> Stressed</span>;
-      case 'Fatigued': return <span className="bg-fa-brand/20 text-fa-brand border border-fa-brand/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg"><span className="text-base">😴</span> Fatigued</span>;
-      case 'Away': return <span className="bg-gray-500/20 text-gray-400 border border-gray-500/30 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg"><span className="text-base">💤</span> Away</span>;
-      default: return null;
-    }
+  // ─── UI ────────────────────────────────────────────────────────────
+  const stateStyle = displayState === 'Away'
+    ? { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' }
+    : { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' };
+
+  const emotionColors = {
+    happy: 'text-yellow-400',
+    sad: 'text-blue-400',
+    angry: 'text-red-400',
+    surprised: 'text-purple-400',
+    neutral: 'text-gray-300',
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1A2236] border border-[rgba(255,255,255,0.07)] rounded-[16px] overflow-hidden shadow-xl">
-      {/* Camera Header / Control Bar */}
-      <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/[0.02]">
+    <div className="flex flex-col h-full bg-[#FFFDF4] border border-[#E8D5A3] rounded-[16px] overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+
+      {/* Hidden canvas — face-api reads from this, avoids toNetInput video errors */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-[#E8D5A3] bg-white">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-fa-brand/20 rounded-lg">
             <Camera className="text-fa-brand" size={20} />
           </div>
-          <h3 className="font-bold text-white">AI Monitor</h3>
+          <h3 className="font-bold text-[#1A1A2E]">AI Monitor</h3>
         </div>
-        
         {isActive && (
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Active</span>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Live</span>
             </div>
             {!isSessionActive && (
-              <button
-                onClick={stopCamera}
-                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors"
-              >
+              <button onClick={stopCamera}
+                className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 flex items-center gap-1.5 transition-colors">
                 <CameraOff size={14} /> Stop
               </button>
             )}
@@ -291,20 +271,19 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
         )}
       </div>
 
-      <div className="flex-1 relative min-h-0 bg-black flex items-center justify-center">
+      {/* Body */}
+      <div className={`flex-1 relative min-h-0 flex items-center justify-center ${isActive ? 'bg-black' : 'bg-[#FFFDF4]'}`}>
         {!isActive ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-fa-brand/10 flex items-center justify-center mb-4 border border-fa-brand/20">
               <Camera size={32} className="text-fa-brand" />
             </div>
-            <h4 className="text-lg font-bold text-white mb-2">Camera Off</h4>
-            <p className="text-sm text-fa-text-secondary mb-6 max-w-[200px]">
-              Enable AI monitoring to track focus, posture, and emotions.
+            <h4 className="text-lg font-bold text-[#1A1A2E] mb-2">Camera Off</h4>
+            <p className="text-sm text-gray-500 mb-6 max-w-[200px]">
+              Camera must be active to start a focus session.
             </p>
-            <button
-              onClick={startCamera}
-              className="px-6 py-2.5 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-xl font-bold transition-all shadow-lg shadow-fa-brand/20"
-            >
+            <button onClick={startCamera}
+              className="px-6 py-2.5 bg-fa-brand hover:bg-fa-brand/90 text-white rounded-xl font-bold transition-all shadow-lg shadow-fa-brand/20">
               Enable AI Camera
             </button>
           </div>
@@ -312,38 +291,32 @@ const CameraMode = ({ onStateChange, onToggle, isSessionActive }) => {
           <>
             <video
               ref={videoRef}
-              onPlay={handleVideoPlay}
-              autoPlay
-              muted
-              playsInline
+              autoPlay muted playsInline
               className="w-full h-full object-cover transform scale-x-[-1]"
             />
 
-            {!modelsLoaded && (
+            {loadingStatus && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm z-20">
                 <Loader2 size={32} className="text-fa-brand animate-spin mb-3" />
-                <span className="text-xs text-fa-text-primary font-bold uppercase tracking-widest">Loading AI Models...</span>
+                <span className="text-xs text-white font-bold uppercase tracking-widest">
+                  {loadingStatus}
+                </span>
               </div>
             )}
 
-            {/* Overlays */}
-            {modelsLoaded && (
-              <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-3 pointer-events-none">
-                <div className="flex justify-between items-end">
-                  <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl">
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] font-bold text-fa-text-secondary uppercase tracking-widest">Emotion</p>
-                      <p className="text-sm font-bold text-white capitalize">{emotionData.label} <span className="text-fa-brand ml-1">({emotionData.confidence}%)</span></p>
-                    </div>
+            {!loadingStatus && (
+              <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
+                <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 shadow-2xl flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-bold text-fa-text-secondary uppercase tracking-widest mb-0.5">Emotion</p>
+                    <p className={`text-sm font-bold capitalize ${emotionColors[emotion.label] || 'text-gray-300'}`}>
+                      {emotion.label}
+
+                    </p>
                   </div>
-                  {getStateBadge()}
-                </div>
-                
-                <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-2xl">
-                  <div className="space-y-1.5">
-                    <p className="text-[10px] font-bold text-fa-text-secondary uppercase tracking-widest">Posture Detection</p>
-                    <p className="text-sm font-bold text-white">{postureData.label}</p>
-                  </div>
+                  <span className={`border px-3 py-1 rounded-full text-xs font-bold ${stateStyle.bg} ${stateStyle.text} ${stateStyle.border}`}>
+                    {displayState}
+                  </span>
                 </div>
               </div>
             )}

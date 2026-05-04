@@ -55,8 +55,8 @@ const PomodoroTimer = ({ activeTask, cameraActive, onStart, onSessionComplete })
   }, [isRunning, cameraActive, pauseTimer]);
 
   return (
-    <div className="bg-[#1A2236] border border-[rgba(255,255,255,0.07)] h-full rounded-[16px] p-8 flex flex-col items-center relative overflow-hidden shadow-xl">
-      <div className="flex space-x-2 bg-fa-bg-page p-1 rounded-full mb-3">
+    <div className="bg-[#FFFDF4] border border-[#E8D5A3] h-full rounded-[16px] p-8 flex flex-col items-center relative overflow-hidden shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
+      <div className="flex space-x-2 bg-[#FFF8E7] border border-[#E8D5A3] p-1 rounded-full mb-3">
         {['Classic', 'Deep Work', 'Custom'].map((m) => (
           <button
             key={m}
@@ -101,7 +101,7 @@ const PomodoroTimer = ({ activeTask, cameraActive, onStart, onSessionComplete })
       )}
 
       <div className="relative mb-6 text-center mt-4">
-        <h1 className="font-['JetBrains_Mono',monospace] text-8xl font-light text-white tracking-tighter mb-2">
+        <h1 className="font-['JetBrains_Mono',monospace] text-8xl font-light text-[#1A1A2E] tracking-tighter mb-2">
           {formatTime(timeLeft)}
         </h1>
         <div className={`text-[10px] font-black tracking-[0.2em] uppercase ${textColorClass}`}>
@@ -165,11 +165,11 @@ const PomodoroTimer = ({ activeTask, cameraActive, onStart, onSessionComplete })
         )}
       </div>
 
-      <div className="w-full border-t border-white/5 pt-8 mt-auto">
+      <div className="w-full border-t border-[#E8D5A3] pt-8 mt-auto">
         {activeTask && (
-          <div className="bg-white/[0.02] p-4 rounded-2xl border border-white/5 text-center mb-4">
-            <span className="text-[10px] font-black text-fa-text-secondary uppercase tracking-widest block mb-1">Active Target</span>
-            <span className="text-sm font-bold text-white truncate block">{activeTask}</span>
+          <div className="bg-white p-4 rounded-2xl border border-[#E8D5A3] text-center mb-4 shadow-sm">
+            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Active Target</span>
+            <span className="text-sm font-bold text-[#1A1A2E] truncate block">{activeTask}</span>
           </div>
         )}
         <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
